@@ -1,5 +1,4 @@
 import enum
-from typing import Union
 
 
 class HandBoneId(enum.IntEnum):
@@ -253,7 +252,13 @@ class FullBodyBoneId(enum.IntEnum):
 
 
 # A type hint for any of the bone ID enums
-AnyBoneId = Union[HandBoneId, XRHandBoneId, BodyBoneId, FullBodyBoneId]
+AnyBoneId = HandBoneId | XRHandBoneId | BodyBoneId | FullBodyBoneId
+
+# Aliases for brevity
+HB = HandBoneId
+BB = BodyBoneId
+XHB = XRHandBoneId
+FB = FullBodyBoneId
 
 
 class SkeletonType(enum.Enum):
@@ -303,23 +308,23 @@ if __name__ == "__main__":
     print("--- Refactored Skeleton Enums Example ---")
 
     # Example 1: Accessing a specific bone and its value
-    wrist_bone = HandBoneId.Hand_WristRoot
+    wrist_bone = HB.Hand_WristRoot
     print(f"Hand bone: {wrist_bone.name}, Value: {wrist_bone.value}")
 
     # Example 2: Looking up a bone by its value in a specific enum
     # Note: Hand_ThumbTip and Hand_MaxSkinnable share value 19
-    thumb_tip_bone = HandBoneId(19)
+    thumb_tip_bone = HB(19)
     print(f"Hand bone with value 19: {thumb_tip_bone.name} (Canonical is Hand_MaxSkinnable)")
 
     # Example 3: Demonstrating type safety and clarity
-    spine_bone = BodyBoneId.Body_SpineUpper
+    spine_bone = BB.Body_SpineUpper
     print(
         "Body bone: "
         f"{get_bone_label(SkeletonType.Body, spine_bone.value)}, "
         f"Value: {spine_bone.value}"
     )
 
-    xr_thumb_tip = XRHandBoneId.XRHand_ThumbTip
+    xr_thumb_tip = XHB.XRHand_ThumbTip
     # Note: XRHand can be for left or right, the enum is the same.
     print(
         "XR Hand bone: "
@@ -330,9 +335,7 @@ if __name__ == "__main__":
     # Aliasing is now contained within each enum
     print("-" * 20)
     print("Demonstrating aliasing within a single enum:")
-    print(
-        f"Is Hand_WristRoot the same as Hand_Start? {HandBoneId.Hand_WristRoot is HandBoneId.Hand_Start}"
-    )
+    print(f"Is Hand_WristRoot the same as Hand_Start? {HB.Hand_WristRoot is HB.Hand_Start}")
 
     print("\nDemonstrating that different enums are distinct:")
     try:
@@ -352,81 +355,81 @@ if __name__ == "__main__":
 
 FULL_BODY_SKELETON_CONNECTIONS = [
     # Spine
-    (FullBodyBoneId.FullBody_Hips, FullBodyBoneId.FullBody_SpineLower),
-    (FullBodyBoneId.FullBody_SpineLower, FullBodyBoneId.FullBody_SpineMiddle),
-    (FullBodyBoneId.FullBody_SpineMiddle, FullBodyBoneId.FullBody_SpineUpper),
-    (FullBodyBoneId.FullBody_SpineUpper, FullBodyBoneId.FullBody_Chest),
+    (FB.FullBody_Hips, FB.FullBody_SpineLower),
+    (FB.FullBody_SpineLower, FB.FullBody_SpineMiddle),
+    (FB.FullBody_SpineMiddle, FB.FullBody_SpineUpper),
+    (FB.FullBody_SpineUpper, FB.FullBody_Chest),
     # Head
-    (FullBodyBoneId.FullBody_Chest, FullBodyBoneId.FullBody_Neck),
-    (FullBodyBoneId.FullBody_Neck, FullBodyBoneId.FullBody_Head),
+    (FB.FullBody_Chest, FB.FullBody_Neck),
+    (FB.FullBody_Neck, FB.FullBody_Head),
     # Left arm
-    (FullBodyBoneId.FullBody_Chest, FullBodyBoneId.FullBody_LeftShoulder),
-    (FullBodyBoneId.FullBody_LeftShoulder, FullBodyBoneId.FullBody_LeftArmUpper),
-    (FullBodyBoneId.FullBody_LeftArmUpper, FullBodyBoneId.FullBody_LeftArmLower),
-    (FullBodyBoneId.FullBody_LeftArmLower, FullBodyBoneId.FullBody_LeftHandWrist),
+    (FB.FullBody_Chest, FB.FullBody_LeftShoulder),
+    (FB.FullBody_LeftShoulder, FB.FullBody_LeftArmUpper),
+    (FB.FullBody_LeftArmUpper, FB.FullBody_LeftArmLower),
+    (FB.FullBody_LeftArmLower, FB.FullBody_LeftHandWrist),
     # Right arm
-    (FullBodyBoneId.FullBody_Chest, FullBodyBoneId.FullBody_RightShoulder),
-    (FullBodyBoneId.FullBody_RightShoulder, FullBodyBoneId.FullBody_RightArmUpper),
-    (FullBodyBoneId.FullBody_RightArmUpper, FullBodyBoneId.FullBody_RightArmLower),
-    (FullBodyBoneId.FullBody_RightArmLower, FullBodyBoneId.FullBody_RightHandWrist),
+    (FB.FullBody_Chest, FB.FullBody_RightShoulder),
+    (FB.FullBody_RightShoulder, FB.FullBody_RightArmUpper),
+    (FB.FullBody_RightArmUpper, FB.FullBody_RightArmLower),
+    (FB.FullBody_RightArmLower, FB.FullBody_RightHandWrist),
     # Left leg
-    (FullBodyBoneId.FullBody_Hips, FullBodyBoneId.FullBody_LeftUpperLeg),
-    (FullBodyBoneId.FullBody_LeftUpperLeg, FullBodyBoneId.FullBody_LeftLowerLeg),
-    (FullBodyBoneId.FullBody_LeftLowerLeg, FullBodyBoneId.FullBody_LeftFootAnkle),
-    (FullBodyBoneId.FullBody_LeftFootAnkle, FullBodyBoneId.FullBody_LeftFootBall),
+    (FB.FullBody_Hips, FB.FullBody_LeftUpperLeg),
+    (FB.FullBody_LeftUpperLeg, FB.FullBody_LeftLowerLeg),
+    (FB.FullBody_LeftLowerLeg, FB.FullBody_LeftFootAnkle),
+    (FB.FullBody_LeftFootAnkle, FB.FullBody_LeftFootBall),
     # Right leg
-    (FullBodyBoneId.FullBody_Hips, FullBodyBoneId.FullBody_RightUpperLeg),
-    (FullBodyBoneId.FullBody_RightUpperLeg, FullBodyBoneId.FullBody_RightLowerLeg),
-    (FullBodyBoneId.FullBody_RightLowerLeg, FullBodyBoneId.FullBody_RightFootAnkle),
-    (FullBodyBoneId.FullBody_RightFootAnkle, FullBodyBoneId.FullBody_RightFootBall),
+    (FB.FullBody_Hips, FB.FullBody_RightUpperLeg),
+    (FB.FullBody_RightUpperLeg, FB.FullBody_RightLowerLeg),
+    (FB.FullBody_RightLowerLeg, FB.FullBody_RightFootAnkle),
+    (FB.FullBody_RightFootAnkle, FB.FullBody_RightFootBall),
     # Left Hand
-    (FullBodyBoneId.FullBody_LeftHandWrist, FullBodyBoneId.FullBody_LeftHandThumbMetacarpal),
-    (FullBodyBoneId.FullBody_LeftHandThumbMetacarpal, FullBodyBoneId.FullBody_LeftHandThumbProximal),
-    (FullBodyBoneId.FullBody_LeftHandThumbProximal, FullBodyBoneId.FullBody_LeftHandThumbDistal),
-    (FullBodyBoneId.FullBody_LeftHandThumbDistal, FullBodyBoneId.FullBody_LeftHandThumbTip),
-    (FullBodyBoneId.FullBody_LeftHandWrist, FullBodyBoneId.FullBody_LeftHandIndexMetacarpal),
-    (FullBodyBoneId.FullBody_LeftHandIndexMetacarpal, FullBodyBoneId.FullBody_LeftHandIndexProximal),
-    (FullBodyBoneId.FullBody_LeftHandIndexProximal, FullBodyBoneId.FullBody_LeftHandIndexIntermediate),
-    (FullBodyBoneId.FullBody_LeftHandIndexIntermediate, FullBodyBoneId.FullBody_LeftHandIndexDistal),
-    (FullBodyBoneId.FullBody_LeftHandIndexDistal, FullBodyBoneId.FullBody_LeftHandIndexTip),
-    (FullBodyBoneId.FullBody_LeftHandWrist, FullBodyBoneId.FullBody_LeftHandMiddleMetacarpal),
-    (FullBodyBoneId.FullBody_LeftHandMiddleMetacarpal, FullBodyBoneId.FullBody_LeftHandMiddleProximal),
-    (FullBodyBoneId.FullBody_LeftHandMiddleProximal, FullBodyBoneId.FullBody_LeftHandMiddleIntermediate),
-    (FullBodyBoneId.FullBody_LeftHandMiddleIntermediate, FullBodyBoneId.FullBody_LeftHandMiddleDistal),
-    (FullBodyBoneId.FullBody_LeftHandMiddleDistal, FullBodyBoneId.FullBody_LeftHandMiddleTip),
-    (FullBodyBoneId.FullBody_LeftHandWrist, FullBodyBoneId.FullBody_LeftHandRingMetacarpal),
-    (FullBodyBoneId.FullBody_LeftHandRingMetacarpal, FullBodyBoneId.FullBody_LeftHandRingProximal),
-    (FullBodyBoneId.FullBody_LeftHandRingProximal, FullBodyBoneId.FullBody_LeftHandRingIntermediate),
-    (FullBodyBoneId.FullBody_LeftHandRingIntermediate, FullBodyBoneId.FullBody_LeftHandRingDistal),
-    (FullBodyBoneId.FullBody_LeftHandRingDistal, FullBodyBoneId.FullBody_LeftHandRingTip),
-    (FullBodyBoneId.FullBody_LeftHandWrist, FullBodyBoneId.FullBody_LeftHandLittleMetacarpal),
-    (FullBodyBoneId.FullBody_LeftHandLittleMetacarpal, FullBodyBoneId.FullBody_LeftHandLittleProximal),
-    (FullBodyBoneId.FullBody_LeftHandLittleProximal, FullBodyBoneId.FullBody_LeftHandLittleIntermediate),
-    (FullBodyBoneId.FullBody_LeftHandLittleIntermediate, FullBodyBoneId.FullBody_LeftHandLittleDistal),
-    (FullBodyBoneId.FullBody_LeftHandLittleDistal, FullBodyBoneId.FullBody_LeftHandLittleTip),
+    (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandThumbMetacarpal),
+    (FB.FullBody_LeftHandThumbMetacarpal, FB.FullBody_LeftHandThumbProximal),
+    (FB.FullBody_LeftHandThumbProximal, FB.FullBody_LeftHandThumbDistal),
+    (FB.FullBody_LeftHandThumbDistal, FB.FullBody_LeftHandThumbTip),
+    (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandIndexMetacarpal),
+    (FB.FullBody_LeftHandIndexMetacarpal, FB.FullBody_LeftHandIndexProximal),
+    (FB.FullBody_LeftHandIndexProximal, FB.FullBody_LeftHandIndexIntermediate),
+    (FB.FullBody_LeftHandIndexIntermediate, FB.FullBody_LeftHandIndexDistal),
+    (FB.FullBody_LeftHandIndexDistal, FB.FullBody_LeftHandIndexTip),
+    (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandMiddleMetacarpal),
+    (FB.FullBody_LeftHandMiddleMetacarpal, FB.FullBody_LeftHandMiddleProximal),
+    (FB.FullBody_LeftHandMiddleProximal, FB.FullBody_LeftHandMiddleIntermediate),
+    (FB.FullBody_LeftHandMiddleIntermediate, FB.FullBody_LeftHandMiddleDistal),
+    (FB.FullBody_LeftHandMiddleDistal, FB.FullBody_LeftHandMiddleTip),
+    (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandRingMetacarpal),
+    (FB.FullBody_LeftHandRingMetacarpal, FB.FullBody_LeftHandRingProximal),
+    (FB.FullBody_LeftHandRingProximal, FB.FullBody_LeftHandRingIntermediate),
+    (FB.FullBody_LeftHandRingIntermediate, FB.FullBody_LeftHandRingDistal),
+    (FB.FullBody_LeftHandRingDistal, FB.FullBody_LeftHandRingTip),
+    (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandLittleMetacarpal),
+    (FB.FullBody_LeftHandLittleMetacarpal, FB.FullBody_LeftHandLittleProximal),
+    (FB.FullBody_LeftHandLittleProximal, FB.FullBody_LeftHandLittleIntermediate),
+    (FB.FullBody_LeftHandLittleIntermediate, FB.FullBody_LeftHandLittleDistal),
+    (FB.FullBody_LeftHandLittleDistal, FB.FullBody_LeftHandLittleTip),
     # Right Hand
-    (FullBodyBoneId.FullBody_RightHandWrist, FullBodyBoneId.FullBody_RightHandThumbMetacarpal),
-    (FullBodyBoneId.FullBody_RightHandThumbMetacarpal, FullBodyBoneId.FullBody_RightHandThumbProximal),
-    (FullBodyBoneId.FullBody_RightHandThumbProximal, FullBodyBoneId.FullBody_RightHandThumbDistal),
-    (FullBodyBoneId.FullBody_RightHandThumbDistal, FullBodyBoneId.FullBody_RightHandThumbTip),
-    (FullBodyBoneId.FullBody_RightHandWrist, FullBodyBoneId.FullBody_RightHandIndexMetacarpal),
-    (FullBodyBoneId.FullBody_RightHandIndexMetacarpal, FullBodyBoneId.FullBody_RightHandIndexProximal),
-    (FullBodyBoneId.FullBody_RightHandIndexProximal, FullBodyBoneId.FullBody_RightHandIndexIntermediate),
-    (FullBodyBoneId.FullBody_RightHandIndexIntermediate, FullBodyBoneId.FullBody_RightHandIndexDistal),
-    (FullBodyBoneId.FullBody_RightHandIndexDistal, FullBodyBoneId.FullBody_RightHandIndexTip),
-    (FullBodyBoneId.FullBody_RightHandWrist, FullBodyBoneId.FullBody_RightHandMiddleMetacarpal),
-    (FullBodyBoneId.FullBody_RightHandMiddleMetacarpal, FullBodyBoneId.FullBody_RightHandMiddleProximal),
-    (FullBodyBoneId.FullBody_RightHandMiddleProximal, FullBodyBoneId.FullBody_RightHandMiddleIntermediate),
-    (FullBodyBoneId.FullBody_RightHandMiddleIntermediate, FullBodyBoneId.FullBody_RightHandMiddleDistal),
-    (FullBodyBoneId.FullBody_RightHandMiddleDistal, FullBodyBoneId.FullBody_RightHandMiddleTip),
-    (FullBodyBoneId.FullBody_RightHandWrist, FullBodyBoneId.FullBody_RightHandRingMetacarpal),
-    (FullBodyBoneId.FullBody_RightHandRingMetacarpal, FullBodyBoneId.FullBody_RightHandRingProximal),
-    (FullBodyBoneId.FullBody_RightHandRingProximal, FullBodyBoneId.FullBody_RightHandRingIntermediate),
-    (FullBodyBoneId.FullBody_RightHandRingIntermediate, FullBodyBoneId.FullBody_RightHandRingDistal),
-    (FullBodyBoneId.FullBody_RightHandRingDistal, FullBodyBoneId.FullBody_RightHandRingTip),
-    (FullBodyBoneId.FullBody_RightHandWrist, FullBodyBoneId.FullBody_RightHandLittleMetacarpal),
-    (FullBodyBoneId.FullBody_RightHandLittleMetacarpal, FullBodyBoneId.FullBody_RightHandLittleProximal),
-    (FullBodyBoneId.FullBody_RightHandLittleProximal, FullBodyBoneId.FullBody_RightHandLittleIntermediate),
-    (FullBodyBoneId.FullBody_RightHandLittleIntermediate, FullBodyBoneId.FullBody_RightHandLittleDistal),
-    (FullBodyBoneId.FullBody_RightHandLittleDistal, FullBodyBoneId.FullBody_RightHandLittleTip),
+    (FB.FullBody_RightHandWrist, FB.FullBody_RightHandThumbMetacarpal),
+    (FB.FullBody_RightHandThumbMetacarpal, FB.FullBody_RightHandThumbProximal),
+    (FB.FullBody_RightHandThumbProximal, FB.FullBody_RightHandThumbDistal),
+    (FB.FullBody_RightHandThumbDistal, FB.FullBody_RightHandThumbTip),
+    (FB.FullBody_RightHandWrist, FB.FullBody_RightHandIndexMetacarpal),
+    (FB.FullBody_RightHandIndexMetacarpal, FB.FullBody_RightHandIndexProximal),
+    (FB.FullBody_RightHandIndexProximal, FB.FullBody_RightHandIndexIntermediate),
+    (FB.FullBody_RightHandIndexIntermediate, FB.FullBody_RightHandIndexDistal),
+    (FB.FullBody_RightHandIndexDistal, FB.FullBody_RightHandIndexTip),
+    (FB.FullBody_RightHandWrist, FB.FullBody_RightHandMiddleMetacarpal),
+    (FB.FullBody_RightHandMiddleMetacarpal, FB.FullBody_RightHandMiddleProximal),
+    (FB.FullBody_RightHandMiddleProximal, FB.FullBody_RightHandMiddleIntermediate),
+    (FB.FullBody_RightHandMiddleIntermediate, FB.FullBody_RightHandMiddleDistal),
+    (FB.FullBody_RightHandMiddleDistal, FB.FullBody_RightHandMiddleTip),
+    (FB.FullBody_RightHandWrist, FB.FullBody_RightHandRingMetacarpal),
+    (FB.FullBody_RightHandRingMetacarpal, FB.FullBody_RightHandRingProximal),
+    (FB.FullBody_RightHandRingProximal, FB.FullBody_RightHandRingIntermediate),
+    (FB.FullBody_RightHandRingIntermediate, FB.FullBody_RightHandRingDistal),
+    (FB.FullBody_RightHandRingDistal, FB.FullBody_RightHandRingTip),
+    (FB.FullBody_RightHandWrist, FB.FullBody_RightHandLittleMetacarpal),
+    (FB.FullBody_RightHandLittleMetacarpal, FB.FullBody_RightHandLittleProximal),
+    (FB.FullBody_RightHandLittleProximal, FB.FullBody_RightHandLittleIntermediate),
+    (FB.FullBody_RightHandLittleIntermediate, FB.FullBody_RightHandLittleDistal),
+    (FB.FullBody_RightHandLittleDistal, FB.FullBody_RightHandLittleTip),
 ]

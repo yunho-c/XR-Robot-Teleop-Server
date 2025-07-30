@@ -2,12 +2,13 @@ import asyncio
 import inspect
 import uuid
 from contextlib import asynccontextmanager
-from functools import partial, wraps
+from functools import wraps
 
 import uvicorn
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+
 from .. import logger
 
 

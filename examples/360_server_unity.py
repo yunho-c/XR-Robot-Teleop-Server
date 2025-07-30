@@ -5,7 +5,7 @@ import struct
 import time
 from functools import partial
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from aiortc import MediaStreamTrack
@@ -57,7 +57,7 @@ def convert_unity_to_right_handed_z_up(
 
 # Define a state object for orientation
 class AppState:
-    def __init__(self, visualizer: Optional[Any] = None):
+    def __init__(self, visualizer: Any | None = None):
         self.pitch = 0.0
         self.yaw = 0.0
         self.roll = 0.0
