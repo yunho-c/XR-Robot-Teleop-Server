@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 [project]
 name = "xr-robot-teleop-server"
 dynamic = ["version"] # see [tool.hatch.version]
-description = "A Python project that streams 360 panoramic videos to XR headsets."
+description = "a robot teleoperation server for XR headsets"
 readme = "README.md"
 authors = [{ name = "Yunho Cho", email = "github@yunhocho.com" }]
 license = { file = "LICENSE" }
@@ -23,7 +23,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 
@@ -46,7 +45,7 @@ Repository = "https://github.com/yunho-c/xr-robot-teleop-server"
 "Bug Tracker" = "https://github.com/yunho-c/xr-robot-teleop-server/issues"
 
 [project.scripts]
-xr-streamer = "xr_robot_teleop_server.cli:main"
+serve = "xr_robot_teleop_server.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov", "mypy>=1.0", "ruff", "pre-commit", "hatch"]
