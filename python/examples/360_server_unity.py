@@ -11,9 +11,9 @@ import numpy as np
 from aiortc import MediaStreamTrack
 from av import VideoFrame
 
-from xr_360_camera_streamer.sources import FFmpegFileSource, OpenCVFileSource
-from xr_360_camera_streamer.streaming import WebRTCServer
-from xr_360_camera_streamer.transforms import EquilibEqui2Pers
+from xr_robot_teleop_server.sources import FFmpegFileSource, OpenCVFileSource
+from xr_robot_teleop_server.streaming import WebRTCServer
+from xr_robot_teleop_server.transforms import EquilibEqui2Pers
 
 from ovr_skeleton_utils import (
     FULL_BODY_SKELETON_CONNECTIONS,
@@ -226,7 +226,7 @@ def on_body_pose_message(message: bytes, state: AppState):
 def create_video_track(state: AppState):
     video_path = os.path.join(
         Path(__file__).parents[2],
-        "xr-360-streamer-assets",
+        "xr-robot-teleop-server-assets",
         "videos",
         "test_video.mp4",
     )
@@ -235,7 +235,7 @@ def create_video_track(state: AppState):
         raise FileNotFoundError(
             f"Video asset not found at {video_path}. "
             "Please download the assets from the repository "
-            "and place them in `xr-360-streamer-assets` at the project root."
+            "and place them in `xr-robot-teleop-server-assets` at the project root."
         )
 
     # Initialize the video source and transform
@@ -263,7 +263,7 @@ if __name__ == "__main__":
             print("Please install OpenCV, rerun SDK and matplotlib: pip install -e .[viz]")
             exit(1)
 
-        rr.init("xr-360-camera-streamer", spawn=True)
+        rr.init("xr-robot-teleop-server", spawn=True)
         if CONVERT_UNITY_COORDS:
             # Set coordinate system to right-handed, Z-up
             rr.log("world", rr.ViewCoordinates.RIGHT_HAND_Z_UP, static=True)  # NOTE: same as FLU

@@ -8,13 +8,11 @@ build-backend = "hatchling.build"
 # ------------------------------------------------------------------- #
 
 [project]
-name = "xr-360-camera-streamer"
+name = "xr-robot-teleop-server"
 dynamic = ["version"] # see [tool.hatch.version]
 description = "A Python project that streams 360 panoramic videos to XR headsets."
 readme = "README.md"
-authors = [
-  { name = "Yunho Cho", email = "github@yunhocho.com" },
-]
+authors = [{ name = "Yunho Cho", email = "github@yunhocho.com" }]
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 classifiers = [
@@ -30,39 +28,29 @@ classifiers = [
 ]
 
 dependencies = [
-  "aiortc",
-  "fastapi",
-  "loguru",
-  "numpy",
-  "opencv-python",
-  "pyequilib",
-  "python-multipart",
-  "Pillow",
-  "torch",
-  "uvicorn",
+    "aiortc",
+    "fastapi",
+    "loguru",
+    "numpy",
+    "opencv-python",
+    "pyequilib",
+    "python-multipart",
+    "Pillow",
+    "torch",
+    "uvicorn",
 ]
 
 [project.urls]
-Homepage = "https://github.com/yunho-c/xr-360-camera-streamer"
-Repository = "https://github.com/yunho-c/xr-360-camera-streamer"
-"Bug Tracker" = "https://github.com/yunho-c/xr-360-camera-streamer/issues"
+Homepage = "https://github.com/yunho-c/xr-robot-teleop-server"
+Repository = "https://github.com/yunho-c/xr-robot-teleop-server"
+"Bug Tracker" = "https://github.com/yunho-c/xr-robot-teleop-server/issues"
 
 [project.scripts]
-xr-streamer = "xr_360_camera_streamer.cli:main"
+xr-streamer = "xr_robot_teleop_server.cli:main"
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=8.0",
-    "pytest-cov",
-    "mypy>=1.0",
-    "ruff",
-    "pre-commit",
-    "hatch",
-]
-viz = [
-    "rerun-sdk",
-    "matplotlib"
-]
+dev = ["pytest>=8.0", "pytest-cov", "mypy>=1.0", "ruff", "pre-commit", "hatch"]
+viz = ["rerun-sdk", "matplotlib"]
 # To install: pip install -e .[dev,viz]
 
 # ------------------------------------------------------------------- #
@@ -70,7 +58,7 @@ viz = [
 # ------------------------------------------------------------------- #
 
 [tool.hatch.version]
-path = "src/xr_360_camera_streamer/__about__.py"
+path = "src/xr_robot_teleop_server/__about__.py"
 
 [tool.ruff]
 # See https://docs.astral.sh/ruff/configuration/
@@ -83,14 +71,12 @@ ignore = []
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "-ra -q --cov=xr_360_camera_streamer --cov-report=term-missing"
-testpaths = [
-    "tests",
-]
+addopts = "-ra -q --cov=xr_robot_teleop_server --cov-report=term-missing"
+testpaths = ["tests"]
 
 [tool.mypy]
 # See https://mypy.readthedocs.io/en/stable/config_file.html
-packages = ["xr_360_camera_streamer"]
+packages = ["xr_robot_teleop_server"]
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
@@ -99,7 +85,5 @@ disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 # Allow third-party libraries that don't have type hints
-module = [
-    "requests.*",
-]
+module = ["requests.*"]
 ignore_missing_imports = true

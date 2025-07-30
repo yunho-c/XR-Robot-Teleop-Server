@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from .. import logger
 
-from xr_360_camera_streamer.sources import VideoSource
+from xr_robot_teleop_server.sources import VideoSource
 
 _available_hw_accels = None
 

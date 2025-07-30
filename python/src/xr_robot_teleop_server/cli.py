@@ -1,4 +1,4 @@
-"""Command-line interface for xr-360-camera-streamer."""
+"""Command-line interface for xr-robot-teleop-server."""
 
 import sys
 
@@ -7,7 +7,7 @@ from . import logger
 
 def main() -> int:
     """The main function of the command-line interface."""
-    logger.info("Starting XR 360 Camera Streamer...")
+    logger.info("Starting xr-robot-teleop-server...")
     # Your application logic will go here
     return 0
 
