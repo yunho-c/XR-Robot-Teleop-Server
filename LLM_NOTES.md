@@ -763,3 +763,430 @@ rr.log(
 ```
 
 By using classes and keypoints together, you create a structured and well-annotated visualization, making it easy to identify individual components of a complex object in the `rerun` viewer.
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│  > @examples/ovr_skeleton_utils.py What do you think of either disabling ruff formatting errors or allowing linetoolong for 353-431 of @examples/ovr_skeleton_utils.py?  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  ReadManyFiles Will attempt to read and concatenate files using patterns: `examples/ovr_skeleton_utils.py` (within target directory: `/Users/yunhocho/GitHub/XR-Robot-Teleop-Server`). Excludin… │
+ │                                                                                                                                                                                                    │
+ │    ### ReadManyFiles Result (Target Dir: `/Users/yunhocho/GitHub/XR-Robot-Teleop-Server`)                                                                                                          │
+ │                                                                                                                                                                                                    │
+ │    Successfully read and concatenated content from **1 file(s)**.                                                                                                                                  │
+ │                                                                                                                                                                                                    │
+ │    **Processed Files:**                                                                                                                                                                            │
+ │    - `examples/ovr_skeleton_utils.py`                                                                                                                                                              │
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Both are valid options. Disabling a linter for a section of code is a common way to handle exceptions where the rules make the code less readable.
+
+  However, a better long-term solution that avoids suppressing linters is to refactor the code slightly. In this case, we can introduce a short alias for FullBodyBoneId just before it's used.
+  This makes the lines shorter and arguably more readable without sacrificing clarity.
+
+  Here's how it would look:
+
+    1 # ... existing code ...
+    2 if selected_bone is BodyBoneId.Body_Root:
+    3     print("\nCorrectly identified Body_Root using 'is'.")
+    4 
+    5 
+    6 FB = FullBodyBoneId  # Alias for brevity
+    7 FULL_BODY_SKELETON_CONNECTIONS = [
+    8     # Spine
+    9     (FB.FullBody_Hips, FB.FullBody_SpineLower),
+   10     (FB.FullBody_SpineLower, FB.FullBody_SpineMiddle),
+   11     # ... and so on for the rest of the list
+   12 ]
+
+  This change would resolve the line-too-long errors by making the lines compliant with standard line lengths, which is a cleaner solution than adding # noqa comments to every line.
+
+  What do you think of this approach? If you agree, I can apply this change.
+
+╭────────────────────────╮
+│  > That sounds great!  │
+╰────────────────────────╯
+
+✦ Got it. I'll apply the changes to examples/ovr_skeleton_utils.py now.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Shell OLD_STRING="""if selected_bone is BodyBoneId.Body_Root:…                                                                                                                        │
+ │                                                                                                                                                                                          │
+ │                                                                                                                                                                                          │
+ │                                                                                                                                                                                          │
+ │                                                                                                                                                                                          │
+ │                                                                                                                                                                                          │
+ │                                                                                                                                                                                          │
+ │    bash: line 1: identified: command not found                                                                                                                                           │
+ │    bash: line 85: identified: command not found                                                                                                                                          │
+ │    bash: line 171: gemini-cli: command not found                                                                                                                                         │
+ │                                                                                                                                                                                          │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ That failed because I used the wrong tool. I should have used replace directly. My apologies.
+
+  I'll use the correct tool now to apply the changes.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/ovr_skeleton_utils.py: if selected_bone is BodyBoneId... => if selected_bone is BodyBoneId...                                                                           │
+ │                                                                                                                                                                                          │
+ │    ... first 41 lines hidden ...                                                                                                                                                         │
+ │    375 -     (FullBodyBoneId.FullBody_LeftLowerLeg, FullBodyBoneId.FullBody_LeftFootAnkle),                                                                                              │
+ │    376 -     (FullBodyBoneId.FullBody_LeftFootAnkle, FullBodyBoneId.FullBody_LeftFootBall),                                                                                              │
+ │    375 +     (FB.FullBody_Hips, FB.FullBody_LeftUpperLeg),                                                                                                                               │
+ │    376 +     (FB.FullBody_LeftUpperLeg, FB.FullBody_LeftLowerLeg),                                                                                                                       │
+ │    377 +     (FB.FullBody_LeftLowerLeg, FB.FullBody_LeftFootAnkle),                                                                                                                      │
+ │    378 +     (FB.FullBody_LeftFootAnkle, FB.FullBody_LeftFootBall),                                                                                                                      │
+ │    379       # Right leg                                                                                                                                                                 │
+ │    378 -     (FullBodyBoneId.FullBody_Hips, FullBodyBoneId.FullBody_RightUpperLeg),                                                                                                      │
+ │    379 -     (FullBodyBoneId.FullBody_RightUpperLeg, FullBodyBoneId.FullBody_RightLowerLeg),                                                                                             │
+ │    380 -     (FullBodyBoneId.FullBody_RightLowerLeg, FullBodyBoneId.FullBody_RightFootAnkle),                                                                                            │
+ │    381 -     (FullBodyBoneId.FullBody_RightFootAnkle, FullBodyBoneId.FullBody_RightFootBall),                                                                                            │
+ │    380 +     (FB.FullBody_Hips, FB.FullBody_RightUpperLeg),                                                                                                                              │
+ │    381 +     (FB.FullBody_RightUpperLeg, FB.FullBody_RightLowerLeg),                                                                                                                     │
+ │    382 +     (FB.FullBody_RightLowerLeg, FB.FullBody_RightFootAnkle),                                                                                                                    │
+ │    383 +     (FB.FullBody_RightFootAnkle, FB.FullBody_RightFootBall),                                                                                                                    │
+ │    384       # Left Hand                                                                                                                                                                 │
+ │    383 -     (FullBodyBoneId.FullBody_LeftHandWrist, FullBodyBoneId.FullBody_LeftHandThumbMetacarpal),                                                                                   │
+ │    384 -     (FullBodyBoneId.FullBody_LeftHandThumbMetacarpal, FullBodyBoneId.FullBody_LeftHandThumbProximal),                                                                           │
+ │    385 -     (FullBodyBoneId.FullBody_LeftHandThumbProximal, FullBodyBoneId.FullBody_LeftHandThumbDistal),                                                                               │
+ │    386 -     (FullBodyBoneId.FullBody_LeftHandThumbDistal, FullBodyBoneId.FullBody_LeftHandThumbTip),                                                                                    │
+ │    387 -     (FullBodyBoneId.FullBody_LeftHandWrist, FullBodyBoneId.FullBody_LeftHandIndexMetacarpal),                                                                                   │
+ │    388 -     (FullBodyBoneId.FullBody_LeftHandIndexMetacarpal, FullBodyBoneId.FullBody_LeftHandIndexProximal),                                                                           │
+ │    389 -     (FullBodyBoneId.FullBody_LeftHandIndexProximal, FullBodyBoneId.FullBody_LeftHandIndexIntermediate),                                                                         │
+ │    390 -     (FullBodyBoneId.FullBody_LeftHandIndexIntermediate, FullBodyBoneId.FullBody_LeftHandIndexDistal),                                                                           │
+ │    391 -     (FullBodyBoneId.FullBody_LeftHandIndexDistal, FullBodyBoneId.FullBody_LeftHandIndexTip),                                                                                    │
+ │    392 -     (FullBodyBoneId.FullBody_LeftHandWrist, FullBodyBoneId.FullBody_LeftHandMiddleMetacarpal),                                                                                  │
+ │    393 -     (FullBodyBoneId.FullBody_LeftHandMiddleMetacarpal, FullBodyBoneId.FullBody_LeftHandMiddleProximal),                                                                         │
+ │    394 -     (FullBodyBoneId.FullBody_LeftHandMiddleProximal, FullBodyBoneId.FullBody_LeftHandMiddleIntermediate),                                                                       │
+ │    395 -     (FullBodyBoneId.FullBody_LeftHandMiddleIntermediate, FullBodyBoneId.FullBody_LeftHandMiddleDistal),                                                                         │
+ │    396 -     (FullBodyBoneId.FullBody_LeftHandMiddleDistal, FullBodyBoneId.FullBody_LeftHandMiddleTip),                                                                                  │
+ │    397 -     (FullBodyBoneId.FullBody_LeftHandWrist, FullBodyBoneId.FullBody_LeftHandRingMetacarpal),                                                                                    │
+ │    398 -     (FullBodyBoneId.FullBody_LeftHandRingMetacarpal, FullBodyBoneId.FullBody_LeftHandRingProximal),                                                                             │
+ │    399 -     (FullBodyBoneId.FullBody_LeftHandRingProximal, FullBodyBoneId.FullBody_LeftHandRingIntermediate),                                                                           │
+ │    400 -     (FullBodyBoneId.FullBody_LeftHandRingIntermediate, FullBodyBoneId.FullBody_LeftHandRingDistal),                                                                             │
+ │    401 -     (FullBodyBoneId.FullBody_LeftHandRingDistal, FullBodyBoneId.FullBody_LeftHandRingTip),                                                                                      │
+ │    402 -     (FullBodyBoneId.FullBody_LeftHandWrist, FullBodyBoneId.FullBody_LeftHandLittleMetacarpal),                                                                                  │
+ │    403 -     (FullBodyBoneId.FullBody_LeftHandLittleMetacarpal, FullBodyBoneId.FullBody_LeftHandLittleProximal),                                                                         │
+ │    404 -     (FullBodyBoneId.FullBody_LeftHandLittleProximal, FullBodyBoneId.FullBody_LeftHandLittleIntermediate),                                                                       │
+ │    405 -     (FullBodyBoneId.FullBody_LeftHandLittleIntermediate, FullBodyBoneId.FullBody_LeftHandLittleDistal),                                                                         │
+ │    406 -     (FullBodyBoneId.FullBody_LeftHandLittleDistal, FullBodyBoneId.FullBody_LeftHandLittleTip),                                                                                  │
+ │    385 +     (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandThumbMetacarpal),                                                                                                           │
+ │    386 +     (FB.FullBody_LeftHandThumbMetacarpal, FB.FullBody_LeftHandThumbProximal),                                                                                                   │
+ │    387 +     (FB.FullBody_LeftHandThumbProximal, FB.FullBody_LeftHandThumbDistal),                                                                                                       │
+ │    388 +     (FB.FullBody_LeftHandThumbDistal, FB.FullBody_LeftHandThumbTip),                                                                                                            │
+ │    389 +     (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandIndexMetacarpal),                                                                                                           │
+ │    390 +     (FB.FullBody_LeftHandIndexMetacarpal, FB.FullBody_LeftHandIndexProximal),                                                                                                   │
+ │    391 +     (FB.FullBody_LeftHandIndexProximal, FB.FullBody_LeftHandIndexIntermediate),                                                                                                 │
+ │    392 +     (FB.FullBody_LeftHandIndexIntermediate, FB.FullBody_LeftHandIndexDistal),                                                                                                   │
+ │    393 +     (FB.FullBody_LeftHandIndexDistal, FB.FullBody_LeftHandIndexTip),                                                                                                            │
+ │    394 +     (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandMiddleMetacarpal),                                                                                                          │
+ │    395 +     (FB.FullBody_LeftHandMiddleMetacarpal, FB.FullBody_LeftHandMiddleProximal),                                                                                                 │
+ │    396 +     (FB.FullBody_LeftHandMiddleProximal, FB.FullBody_LeftHandMiddleIntermediate),                                                                                               │
+ │    397 +     (FB.FullBody_LeftHandMiddleIntermediate, FB.FullBody_LeftHandMiddleDistal),                                                                                                 │
+ │    398 +     (FB.FullBody_LeftHandMiddleDistal, FB.FullBody_LeftHandMiddleTip),                                                                                                          │
+ │    399 +     (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandRingMetacarpal),                                                                                                            │
+ │    400 +     (FB.FullBody_LeftHandRingMetacarpal, FB.FullBody_LeftHandRingProximal),                                                                                                     │
+ │    401 +     (FB.FullBody_LeftHandRingProximal, FB.FullBody_LeftHandRingIntermediate),                                                                                                   │
+ │    402 +     (FB.FullBody_LeftHandRingIntermediate, FB.FullBody_LeftHandRingDistal),                                                                                                     │
+ │    403 +     (FB.FullBody_LeftHandRingDistal, FB.FullBody_LeftHandRingTip),                                                                                                              │
+ │    404 +     (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandLittleMetacarpal),                                                                                                          │
+ │    405 +     (FB.FullBody_LeftHandLittleMetacarpal, FB.FullBody_LeftHandLittleProximal),                                                                                                 │
+ │    406 +     (FB.FullBody_LeftHandLittleProximal, FB.FullBody_LeftHandLittleIntermediate),                                                                                               │
+ │    407 +     (FB.FullBody_LeftHandLittleIntermediate, FB.FullBody_LeftHandLittleDistal),                                                                                                 │
+ │    408 +     (FB.FullBody_LeftHandLittleDistal, FB.FullBody_LeftHandLittleTip),                                                                                                          │
+ │    409       # Right Hand                                                                                                                                                                │
+ │    408 -     (FullBodyBoneId.FullBody_RightHandWrist, FullBodyBoneId.FullBody_RightHandThumbMetacarpal),                                                                                 │
+ │    409 -     (FullBodyBoneId.FullBody_RightHandThumbMetacarpal, FullBodyBoneId.FullBody_RightHandThumbProximal),                                                                         │
+ │    410 -     (FullBodyBoneId.FullBody_RightHandThumbProximal, FullBodyBoneId.FullBody_RightHandThumbDistal),                                                                             │
+ │    411 -     (FullBodyBoneId.FullBody_RightHandThumbDistal, FullBodyBoneId.FullBody_RightHandThumbTip),                                                                                  │
+ │    412 -     (FullBodyBoneId.FullBody_RightHandWrist, FullBodyBoneId.FullBody_RightHandIndexMetacarpal),                                                                                 │
+ │    413 -     (FullBodyBoneId.FullBody_RightHandIndexMetacarpal, FullBodyBoneId.FullBody_RightHandIndexProximal),                                                                         │
+ │    414 -     (FullBodyBoneId.FullBody_RightHandIndexProximal, FullBodyBoneId.FullBody_RightHandIndexIntermediate),                                                                       │
+ │    415 -     (FullBodyBoneId.FullBody_RightHandIndexIntermediate, FullBodyBoneId.FullBody_RightHandIndexDistal),                                                                         │
+ │    416 -     (FullBodyBoneId.FullBody_RightHandIndexDistal, FullBodyBoneId.FullBody_RightHandIndexTip),                                                                                  │
+ │    417 -     (FullBodyBoneId.FullBody_RightHandWrist, FullBodyBoneId.FullBody_RightHandMiddleMetacarpal),                                                                                │
+ │    418 -     (FullBodyBoneId.FullBody_RightHandMiddleMetacarpal, FullBodyBoneId.FullBody_RightHandMiddleProximal),                                                                       │
+ │    419 -     (FullBodyBoneId.FullBody_RightHandMiddleProximal, FullBodyBoneId.FullBody_RightHandMiddleIntermediate),                                                                     │
+ │    420 -     (FullBodyBoneId.FullBody_RightHandMiddleIntermediate, FullBodyBoneId.FullBody_RightHandMiddleDistal),                                                                       │
+ │    421 -     (FullBodyBoneId.FullBody_RightHandMiddleDistal, FullBodyBoneId.FullBody_RightHandMiddleTip),                                                                                │
+ │    422 -     (FullBodyBoneId.FullBody_RightHandWrist, FullBodyBoneId.FullBody_RightHandRingMetacarpal),                                                                                  │
+ │    423 -     (FullBodyBoneId.FullBody_RightHandRingMetacarpal, FullBodyBoneId.FullBody_RightHandRingProximal),                                                                           │
+ │    424 -     (FullBodyBoneId.FullBody_RightHandRingProximal, FullBodyBoneId.FullBody_RightHandRingIntermediate),                                                                         │
+ │    425 -     (FullBodyBoneId.FullBody_RightHandRingIntermediate, FullBodyBoneId.FullBody_RightHandRingDistal),                                                                           │
+ │    426 -     (FullBodyBoneId.FullBody_RightHandRingDistal, FullBodyBoneId.FullBody_RightHandRingTip),                                                                                    │
+ │    427 -     (FullBodyBoneId.FullBody_RightHandWrist, FullBodyBoneId.FullBody_RightHandLittleMetacarpal),                                                                                │
+ │    428 -     (FullBodyBoneId.FullBody_RightHandLittleMetacarpal, FullBodyBoneId.FullBody_RightHandLittleProximal),                                                                       │
+ │    429 -     (FullBodyBoneId.FullBody_RightHandLittleProximal, FullBodyBoneId.FullBody_RightHandLittleIntermediate),                                                                     │
+ │    430 -     (FullBodyBoneId.FullBody_RightHandLittleIntermediate, FullBodyBoneId.FullBody_RightHandLittleDistal),                                                                       │
+ │    431 -     (FullBodyBoneId.FullBody_RightHandLittleDistal, FullBodyBoneId.FullBody_RightHandLittleTip),                                                                                │
+ │    410 +     (FB.FullBody_RightHandWrist, FB.FullBody_RightHandThumbMetacarpal),                                                                                                         │
+ │    411 +     (FB.FullBody_RightHandThumbMetacarpal, FB.FullBody_RightHandThumbProximal),                                                                                                 │
+ │    412 +     (FB.FullBody_RightHandThumbProximal, FB.FullBody_RightHandThumbDistal),                                                                                                     │
+ │    413 +     (FB.FullBody_RightHandThumbDistal, FB.FullBody_RightHandThumbTip),                                                                                                          │
+ │    414 +     (FB.FullBody_RightHandWrist, FB.FullBody_RightHandIndexMetacarpal),                                                                                                         │
+ │    415 +     (FB.FullBody_RightHandIndexMetacarpal, FB.FullBody_RightHandIndexProximal),                                                                                                 │
+ │    416 +     (FB.FullBody_RightHandIndexProximal, FB.FullBody_RightHandIndexIntermediate),                                                                                               │
+ │    417 +     (FB.FullBody_RightHandIndexIntermediate, FB.FullBody_RightHandIndexDistal),                                                                                                 │
+ │    418 +     (FB.FullBody_RightHandIndexDistal, FB.FullBody_RightHandIndexTip),                                                                                                          │
+ │    419 +     (FB.FullBody_RightHandWrist, FB.FullBody_RightHandMiddleMetacarpal),                                                                                                        │
+ │    420 +     (FB.FullBody_RightHandMiddleMetacarpal, FB.FullBody_RightHandMiddleProximal),                                                                                               │
+ │    421 +     (FB.FullBody_RightHandMiddleProximal, FB.FullBody_RightHandMiddleIntermediate),                                                                                             │
+ │    422 +     (FB.FullBody_RightHandMiddleIntermediate, FB.FullBody_RightHandMiddleDistal),                                                                                               │
+ │    423 +     (FB.FullBody_RightHandMiddleDistal, FB.FullBody_RightHandMiddleTip),                                                                                                        │
+ │    424 +     (FB.FullBody_RightHandWrist, FB.FullBody_RightHandRingMetacarpal),                                                                                                          │
+ │    425 +     (FB.FullBody_RightHandRingMetacarpal, FB.FullBody_RightHandRingProximal),                                                                                                   │
+ │    426 +     (FB.FullBody_RightHandRingProximal, FB.FullBody_RightHandRingIntermediate),                                                                                                 │
+ │    427 +     (FB.FullBody_RightHandRingIntermediate, FB.FullBody_RightHandRingDistal),                                                                                                   │
+ │    428 +     (FB.FullBody_RightHandRingDistal, FB.FullBody_RightHandRingTip),                                                                                                            │
+ │    429 +     (FB.FullBody_RightHandWrist, FB.FullBody_RightHandLittleMetacarpal),                                                                                                        │
+ │    430 +     (FB.FullBody_RightHandLittleMetacarpal, FB.FullBody_RightHandLittleProximal),                                                                                               │
+ │    431 +     (FB.FullBody_RightHandLittleProximal, FB.FullBody_RightHandLittleIntermediate),                                                                                             │
+ │    432 +     (FB.FullBody_RightHandLittleIntermediate, FB.FullBody_RightHandLittleDistal),                                                                                               │
+ │    433 +     (FB.FullBody_RightHandLittleDistal, FB.FullBody_RightHandLittleTip),                                                                                                        │
+ │    434   ]                                                                                                                                                                               │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I've applied the changes. Now, I'll run the linter to ensure the code is clean.
+ ╭─────────────────────────────╮
+ │ ✔  ReadFile pyproject.toml  │
+ ╰─────────────────────────────╯
+✦ Okay, pyproject.toml confirms ruff is the linter. I'll run ruff check . to check for any issues.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Shell ruff check examples/ovr_skeleton_utils.py (Running ruff to check for linting errors in the modified file.)                                                                      │
+ │                                                                                                                                                                                          │
+ │    examples/ovr_skeleton_utils.py:256:13: UP007 Use `X | Y` for type annotations                                                                                                         │
+ │        |                                                                                                                                                                                 │
+ │    255 | # A type hint for any of the bone ID enums                                                                                                                                      │
+ │    256 | AnyBoneId = Union[HandBoneId, XRHandBoneId, BodyBoneId, FullBodyBoneId]                                                                                                         │
+ │        |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ UP007                                                                                                   │
+ │        |                                                                                                                                                                                 │
+ │        = help: Convert to `X | Y`                                                                                                                                                        │
+ │                                                                                                                                                                                          │
+ │    examples/ovr_skeleton_utils.py:334:101: E501 Line too long (105 > 100)                                                                                                                │
+ │        |                                                                                                                                                                                 │
+ │    332 |     print("Demonstrating aliasing within a single enum:")                                                                                                                       │
+ │    333 |     print(                                                                                                                                                                      │
+ │    334 |         f"Is Hand_WristRoot the same as Hand_Start? {HandBoneId.Hand_WristRoot is HandBoneId.Hand_Start}"                                                                       │
+ │        |                                                                                                     ^^^^^ E501                                                                  │
+ │    335 |     )                                                                                                                                                                           │
+ │        |                                                                                                                                                                                 │
+ │                                                                                                                                                                                          │
+ │    Found 2 errors.                                                                                                                                                                       │
+ │                                                                                                                                                                                          │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Linter found two errors: UP007 and E501. I'll fix the AnyBoneId type hint to use | and split the long print statement, using the replace tool for both.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/ovr_skeleton_utils.py: AnyBoneId = Union[HandBoneId, ... => AnyBoneId = HandBoneId | XRHan...                                                                           │
+ │                                                                                                                                                                                          │
+ │    253                                                                                                                                                                                   │
+ │    254                                                                                                                                                                                   │
+ │    255   # A type hint for any of the bone ID enums                                                                                                                                      │
+ │    256 - AnyBoneId = Union[HandBoneId, XRHandBoneId, BodyBoneId, FullBodyBoneId]                                                                                                         │
+ │    256 + AnyBoneId = HandBoneId | XRHandBoneId | BodyBoneId | FullBodyBoneId                                                                                                             │
+ │    257                                                                                                                                                                                   │
+ │    258                                                                                                                                                                                   │
+ │    259   class SkeletonType(enum.Enum):                                                                                                                                                  │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Fixing the line-too-long error now.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ -  Edit examples/ovr_skeleton_utils.py: f"Is Hand_WristRoot the same a... =>         f"Is Hand_WristRoot th...                                                                           │
+ │                                                                                                                                                                                          │
+ │    331   print("-" * 20)                                                                                                                                                                 │
+ │    332   print("Demonstrating aliasing within a single enum:")                                                                                                                           │
+ │    333   print(                                                                                                                                                                          │
+ │    334 -     f"Is Hand_WristRoot the same as Hand_Start? {HandBoneId.Hand_WristRoot is HandBoneId.Hand_Start}"                                                                           │
+ │    334 +             f"Is Hand_WristRoot the same as Hand_Start? "                                                                                                                       │
+ │    335 +     f"{HandBoneId.Hand_WristRoot is HandBoneId.Hand_Start}"                                                                                                                     │
+ │    336   )                                                                                                                                                                               │
+ │    337                                                                                                                                                                                   │
+ │    338   print("\nDemonstrating that different enums are distinct:")                                                                                                                     │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+╭──────────────────────────────────────────────────────────────╮
+│  > Could you introduce aliases for different bones as well?  │
+╰──────────────────────────────────────────────────────────────╯
+
+✦ Of course. I'll introduce aliases for the other bone enums in the example block to improve readability and fix the line-length issue.
+
+  First, I'll fix the type hint issue.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/ovr_skeleton_utils.py: AnyBoneId = Union[HandBoneId, ... => AnyBoneId = HandBoneId | XRHan...                                                                           │
+ │                                                                                                                                                                                          │
+ │    Error: Failed to edit, could not find the string to replace.                                                                                                                          │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ It seems the previous change to fix the type hint was already applied. I will now proceed with introducing the aliases in the main execution block.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/ovr_skeleton_utils.py: if __name__ == "__main__":... => if __name__ == "__main__":...                                                                                   │
+ │                                                                                                                                                                                          │
+ │    302   if __name__ == "__main__":                                                                                                                                                      │
+ │    303       print("--- Refactored Skeleton Enums Example ---")                                                                                                                          │
+ │    304                                                                                                                                                                                   │
+ │    305 +     HB = HandBoneId                                                                                                                                                             │
+ │    306 +     BB = BodyBoneId                                                                                                                                                             │
+ │    307 +     XHB = XRHandBoneId                                                                                                                                                          │
+ │    308 +                                                                                                                                                                                 │
+ │    309       # Example 1: Accessing a specific bone and its value                                                                                                                        │
+ │    306 -     wrist_bone = HandBoneId.Hand_WristRoot                                                                                                                                      │
+ │    310 +     wrist_bone = HB.Hand_WristRoot                                                                                                                                              │
+ │    311       print(f"Hand bone: {wrist_bone.name}, Value: {wrist_bone.value}")                                                                                                           │
+ │    312                                                                                                                                                                                   │
+ │    313       # Example 2: Looking up a bone by its value in a specific enum                                                                                                              │
+ │    314       # Note: Hand_ThumbTip and Hand_MaxSkinnable share value 19                                                                                                                  │
+ │    311 -     thumb_tip_bone = HandBoneId(19)                                                                                                                                             │
+ │    315 +     thumb_tip_bone = HB(19)                                                                                                                                                     │
+ │    316       print(f"Hand bone with value 19: {thumb_tip_bone.name} (Canonical is Hand_MaxSkinnable)")                                                                                   │
+ │    317                                                                                                                                                                                   │
+ │    318       # Example 3: Demonstrating type safety and clarity                                                                                                                          │
+ │    315 -     spine_bone = BodyBoneId.Body_SpineUpper                                                                                                                                     │
+ │    319 +     spine_bone = BB.Body_SpineUpper                                                                                                                                             │
+ │    320       print(                                                                                                                                                                      │
+ │    321           "Body bone: "                                                                                                                                                           │
+ │    322           f"{get_bone_label(SkeletonType.Body, spine_bone.value)}, "                                                                                                              │
+ │    323           f"Value: {spine_bone.value}"                                                                                                                                            │
+ │    324       )                                                                                                                                                                           │
+ │    325                                                                                                                                                                                   │
+ │    322 -     xr_thumb_tip = XRHandBoneId.XRHand_ThumbTip                                                                                                                                 │
+ │    326 +     xr_thumb_tip = XHB.XRHand_ThumbTip                                                                                                                                          │
+ │    327       # Note: XRHand can be for left or right, the enum is the same.                                                                                                              │
+ │    328       print(                                                                                                                                                                      │
+ │    329           "XR Hand bone: "                                                                                                                                                        │
+ │    335       print("-" * 20)                                                                                                                                                             │
+ │    336       print("Demonstrating aliasing within a single enum:")                                                                                                                       │
+ │    337       print(                                                                                                                                                                      │
+ │    334 -         f"Is Hand_WristRoot the same as Hand_Start? {HandBoneId.Hand_WristRoot is HandBoneId.Hand_Start}"                                                                       │
+ │    338 +         f"Is Hand_WristRoot the same as Hand_Start? {HB.Hand_WristRoot is HB.Hand_Start}"                                                                                       │
+ │    339       )                                                                                                                                                                           │
+ │    340                                                                                                                                                                                   │
+ │    341       print("\nDemonstrating that different enums are distinct:")                                                                                                                 │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I've added the aliases. Now, I'll run the linter again to ensure the code is clean.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Shell ruff check examples/ovr_skeleton_utils.py (Running ruff to check for linting errors in the modified file.)                                                                      │
+ │                                                                                                                                                                                          │
+ │    examples/ovr_skeleton_utils.py:2:20: F401 [*] `typing.Union` imported but unused                                                                                                      │
+ │      |                                                                                                                                                                                   │
+ │    1 | import enum                                                                                                                                                                       │
+ │    2 | from typing import Union                                                                                                                                                          │
+ │      |                    ^^^^^ F401                                                                                                                                                     │
+ │      |                                                                                                                                                                                   │
+ │      = help: Remove unused import: `typing.Union`                                                                                                                                        │
+ │                                                                                                                                                                                          │
+ │    Found 1 error.                                                                                                                                                                        │
+ │    [*] 1 fixable with the `--fix` option.                                                                                                                                                │
+ │                                                                                                                                                                                          │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ The linter found an unused import. I'll remove it.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/ovr_skeleton_utils.py: import enum... => import enum                                                                                                                    │
+ │                                                                                                                                                                                          │
+ │    1   import enum                                                                                                                                                                       │
+ │    2 - from typing import Union                                                                                                                                                          │
+ │    2                                                                                                                                                                                     │
+ │    3                                                                                                                                                                                     │
+ │    4   class HandBoneId(enum.IntEnum):                                                                                                                                                   │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I've removed the unused import. I'll run the linter one last time to confirm everything is clean.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Shell ruff check examples/ovr_skeleton_utils.py (Running ruff to check for linting errors in the modified file.)                                                                      │
+ │                                                                                                                                                                                          │
+ │    All checks passed!                                                                                                                                                                    │
+ │                                                                                                                                                                                          │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Great, all checks passed. The refactoring is complete and the code is clean. Is there anything else I can help you with?
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│  > If I were to put ovr_skeleton_utils somewhere in the source code (not in examples), could you suggest a folder name? Also, could you recommend great filenames for ovr_skeleton_utils? My   │
+│    scope of this project changed from serving 360 videos to being a robotic teleop client (that may use body pose)                                                                             │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+✦ Excellent question. Thinking about the project's structure as it evolves is crucial. Based on your new scope, here are my recommendations:
+
+  Folder Recommendation
+
+  The best place for these definitions is a new directory that holds the project's core data structures or "models."
+
+  I recommend creating a models folder:
+  src/xr_robot_teleop_server/models/
+
+  Reasoning:
+   * Separation of Concerns: It cleanly separates the data definitions (like skeleton structures) from data sources (like cameras), streaming logic, and transforms.
+   * Standard Convention: Using a models or schemas directory is a common and well-understood pattern in software engineering for holding data representations.
+   * Scalability: As you add more data types (e.g., robot arm configurations, gripper states), they can all live logically within this models directory.
+
+  Filename Recommendation
+
+  The current name ovr_skeleton_utils.py has two parts worth improving:
+   1. ovr_: This is specific to Oculus/Meta. Since your project is a broader teleop client and the enums include OpenXR standards, a more generic name is better.
+   2. _utils: This is a bit vague. The file does more than provide "utilities"—it defines the core data structures for skeletons.
+
+  Here are my recommended filenames, from best to good:
+
+   1. `skeletons.py` (Recommended)
+       * Why: It's simple, direct, and accurately describes the contents. When placed in the models directory, the full path xr_robot_teleop_server/models/skeletons.py is perfectly clear and
+         self-documenting.
+
+   2. `skeleton_definitions.py`
+       * Why: This is more explicit and leaves no room for ambiguity. A great choice if you prefer clarity over brevity.
+
+   3. `pose_models.py`
+       * Why: "Pose" is another excellent, generic term in robotics and XR. This would be a good fit if you plan to include more than just bone-based skeletons (e.g., facial expressions,
+         simplified pose landmarks).
+
+  Summary
+
+  My top recommendation is to move the file to:
+  src/xr_robot_teleop_server/models/skeletons.py
+
+  If you'd like, I can create the new directory and move/rename the file for you.
+
+╭──────────────────────────────────────────────────────╮
+│  > What are some alternatives to the term "models"?  │
+╰──────────────────────────────────────────────────────╯
+
+✦ Of course. "Models" is a very common and generally good choice, but other terms can be more descriptive depending on the specific architectural style you prefer.
+
+  Here are some excellent alternatives to models, along with the context where they fit best:
+
+  1. schemas
+  This is arguably the strongest alternative.
+   * Best for: Projects focused on data validation and clear data contracts, especially for APIs. Since you're receiving structured data from an XR device, you are essentially working with a
+     "schema."
+   * Why: The term schema implies a formal definition of data structure, which is exactly what your skeleton enums provide. It's a standard term in API development (e.g., Pydantic, JSON Schema).
+   * Example: src/xr_robot_teleop_server/schemas/skeletons.py
+
+  2. domain
+  This is a powerful choice if you are thinking in terms of Domain-Driven Design (DDD).
+   * Best for: Projects where you want to clearly separate the core "business logic" or problem space from the application's infrastructure.
+   * Why: The skeleton definitions are a core concept of your "teleoperation domain." This folder would contain the objects and logic that represent the real-world problem you're solving,
+     independent of how the data is streamed or displayed.
+   * Example: src/xr_robot_teleop_server/domain/skeletons.py
+
+  3. datatypes or types
+  Simple, explicit, and clear.
+   * Best for: When you want a name that is impossible to misinterpret.
+   * Why: The file defines new data types using enum. This name is literal and accurate. types is very common in the TypeScript world and is gaining traction in Python as well.
+   * Example: src/xr_robot_teleop_server/datatypes/skeletons.py
+
+  4. core
+  A more general-purpose option.
+   * Best for: Smaller projects or when the data structures are tightly coupled with the most fundamental logic of the application.
+   * Why: This directory signifies that its contents are essential to the application's function. The risk is that core can sometimes become a catch-all folder if not managed carefully.
+   * Example: src/xr_robot_teleop_server/core/skeletons.py
+
+  5. definitions
+  Similar to schemas but slightly more generic.
+   * Best for: Projects where you have many files that "define" core concepts, not just data structures.
+   * Why: It clearly communicates that the file contains the definition of something fundamental.
+   * Example: src/xr_robot_teleop_server/definitions/skeletons.py
+
+  Recommendation Summary
+
+
+  ┌─────────────┬───────────┬───────────────────────────────────────────────────────────┐
+  │ Folder Name │ Strength  │ Nuance                                                    │
+  ├─────────────┼───────────┼───────────────────────────────────────────────────────────┤
+  │ `schemas`     │ Excellent │ Emphasizes data structure and validation. Great for APIs. │
+  │ `domain`      │ Excellent │ Adopts a formal, scalable architectural pattern (DDD).    │
+  │ `datatypes`   │ Very Good │ Simple, literal, and unambiguous.                         │
+  │ core        │ Good      │ General-purpose, but can become a catch-all.              │
+  │ definitions │ Good      │ Clear, but slightly less conventional than schemas.       │
+  └─────────────┴───────────┴───────────────────────────────────────────────────────────┘
+
+
+  Given your project, `schemas` or `domain` would be my top recommendations as strong, professional alternatives to models.

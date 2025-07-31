@@ -11,16 +11,15 @@ import numpy as np
 from aiortc import MediaStreamTrack
 from av import VideoFrame
 
-from xr_robot_teleop_server.sources import FFmpegFileSource, OpenCVFileSource
-from xr_robot_teleop_server.streaming import WebRTCServer
-from xr_robot_teleop_server.transforms import EquilibEqui2Pers
-
-from ovr_skeleton_utils import (
+from xr_robot_teleop_server.schemas.ovr_skeletons import (
     FULL_BODY_SKELETON_CONNECTIONS,
     FullBodyBoneId,
     SkeletonType,
     get_bone_label,
 )
+from xr_robot_teleop_server.sources import FFmpegFileSource
+from xr_robot_teleop_server.streaming import WebRTCServer
+from xr_robot_teleop_server.transforms import EquilibEqui2Pers
 
 # Params
 # video source library
