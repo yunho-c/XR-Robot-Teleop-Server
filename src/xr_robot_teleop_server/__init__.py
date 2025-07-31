@@ -6,13 +6,17 @@ from loguru import logger
 
 from . import __about__
 from .schemas.openxr_skeletons import (
+    BODY_SKELETON_CONNECTIONS,
     FULL_BODY_SKELETON_CONNECTIONS,
+    HAND_SKELETON_CONNECTIONS,
+    OVR_HAND_SKELETON_CONNECTIONS,
     BodyBoneId,
     FullBodyBoneId,
     HandBoneId,
     OVRHandBoneId,
     SkeletonType,
     get_bone_label,
+    get_skeleton_connections,
 )
 from .sources.base import VideoSource
 from .transforms.base import VideoTransform
@@ -28,6 +32,10 @@ __all__ = [
     "FullBodyBoneId",
     "SkeletonType",
     "get_bone_label",
+    "get_skeleton_connections",
+    "BODY_SKELETON_CONNECTIONS",
+    "HAND_SKELETON_CONNECTIONS",
+    "OVR_HAND_SKELETON_CONNECTIONS",
     "FULL_BODY_SKELETON_CONNECTIONS",
 ]
 __version__ = __about__.version

@@ -1448,3 +1448,72 @@ By using classes and keypoints together, you create a structured and well-annota
 
   I'll make that change now.
 ```
+
+```
+✦ Okay, I will analyze the provided C# OVRSkeleton definition and add the corresponding skeleton connectivity data to your Python project.
+  First, I need to examine the existing skeleton definitions in your project.
+ ╭──────────────────────────────────────────────╮
+ │ ✔  ReadFile src/schemas/openxr_skeletons.py  │
+ ╰──────────────────────────────────────────────╯
+✦ Okay, I've analyzed the C# OVRSkeleton and the existing Python schema. I will now update openxr_skeletons.py to include the bone connectivity
+  for all skeleton types and correct the existing full-body skeleton definition.
+
+✦ The script executed successfully, confirming the new connection data is correct. My analysis of the C# OVRSkeleton definition allowed me to
+  infer and implement the bone connectivity for all skeleton types, correcting existing definitions and adding a retrieval function in
+  src/xr_robot_teleop_server/schemas/openxr_skeletons.py. I've verified the changes and am ready for your next instruction.
+```
+
+---
+---
+
+To amend a commit that is not the most recent one, you need to use an interactive rebase. Here is the recipe:
+
+1.  **Start an interactive rebase:**
+    You'll need to tell Git how far back to go. If the commit you want to amend is, for example, 3 commits ago, you would run:
+    ```bash
+    git rebase -i HEAD~3
+    ```
+    This will open your default text editor with a list of the last 3 commits.
+
+2.  **Mark the commit for editing:**
+    In the text editor, you will see a list of commits, each starting with the word `pick`. Find the line corresponding to the commit you want to amend and change `pick` to `edit` (or `e`).
+
+    For example, if you want to edit the second commit in the list:
+    ```
+    pick 1234567 Oldest commit message
+    edit 89abcde Commit message to change
+    pick fghijk0 Newest commit message
+    ```
+
+3.  **Save and exit:**
+    Save the file and close the editor. Git will now rewind to the commit you marked for editing and pause the rebase.
+
+4.  **Amend the commit:**
+    Now you can make your changes.
+    *   To change the commit message, run:
+        ```bash
+        git commit --amend
+        ```
+    *   To add or remove changes from the commit, make your code changes, stage them with `git add .`, and then run:
+        ```bash
+        git commit --amend
+        ```
+
+5.  **Continue the rebase:**
+    Once you are satisfied with your changes, continue the rebase process:
+    ```bash
+    git rebase --continue
+    ```
+    Git will then re-apply the subsequent commits on top of your amended commit.
+
+6.  **Force push (with caution):**
+    If you have already pushed the original commit to a remote repository, you will need to force push your changes. It is highly recommended to use `--force-with-lease` to avoid overwriting work if someone else has pushed changes in the meantime.
+    ```bash
+    git push --force-with-lease <remote-name> <branch-name>
+    ```
+
+This process effectively rewrites the commit history from the point you amended, so be careful when performing this on shared branches.
+
+---
+---
+

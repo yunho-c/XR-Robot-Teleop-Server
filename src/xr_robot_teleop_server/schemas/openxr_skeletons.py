@@ -324,8 +324,150 @@ def get_bone_label(skeleton_type: SkeletonType, bone_id: int) -> str:
     return bone.name
 
 
+# Parent-child relationships for each bone in the skeleton.
+OVR_HAND_SKELETON_CONNECTIONS = [
+    # Fingers
+    (OVRHB.OVRHand_WristRoot, OVRHB.OVRHand_Thumb0),
+    (OVRHB.OVRHand_Thumb0, OVRHB.OVRHand_Thumb1),
+    (OVRHB.OVRHand_Thumb1, OVRHB.OVRHand_Thumb2),
+    (OVRHB.OVRHand_Thumb2, OVRHB.OVRHand_Thumb3),
+    (OVRHB.OVRHand_Thumb3, OVRHB.OVRHand_ThumbTip),
+    (OVRHB.OVRHand_WristRoot, OVRHB.OVRHand_Index1),
+    (OVRHB.OVRHand_Index1, OVRHB.OVRHand_Index2),
+    (OVRHB.OVRHand_Index2, OVRHB.OVRHand_Index3),
+    (OVRHB.OVRHand_Index3, OVRHB.OVRHand_IndexTip),
+    (OVRHB.OVRHand_WristRoot, OVRHB.OVRHand_Middle1),
+    (OVRHB.OVRHand_Middle1, OVRHB.OVRHand_Middle2),
+    (OVRHB.OVRHand_Middle2, OVRHB.OVRHand_Middle3),
+    (OVRHB.OVRHand_Middle3, OVRHB.OVRHand_MiddleTip),
+    (OVRHB.OVRHand_WristRoot, OVRHB.OVRHand_Ring1),
+    (OVRHB.OVRHand_Ring1, OVRHB.OVRHand_Ring2),
+    (OVRHB.OVRHand_Ring2, OVRHB.OVRHand_Ring3),
+    (OVRHB.OVRHand_Ring3, OVRHB.OVRHand_RingTip),
+    (OVRHB.OVRHand_WristRoot, OVRHB.OVRHand_Pinky0),
+    (OVRHB.OVRHand_Pinky0, OVRHB.OVRHand_Pinky1),
+    (OVRHB.OVRHand_Pinky1, OVRHB.OVRHand_Pinky2),
+    (OVRHB.OVRHand_Pinky2, OVRHB.OVRHand_Pinky3),
+    (OVRHB.OVRHand_Pinky3, OVRHB.OVRHand_PinkyTip),
+    # Arm
+    (OVRHB.OVRHand_WristRoot, OVRHB.OVRHand_ForearmStub),
+]
+
+HAND_SKELETON_CONNECTIONS = [
+    # Thumb
+    (HB.Hand_Wrist, HB.Hand_ThumbMetacarpal),
+    (HB.Hand_ThumbMetacarpal, HB.Hand_ThumbProximal),
+    (HB.Hand_ThumbProximal, HB.Hand_ThumbDistal),
+    (HB.Hand_ThumbDistal, HB.Hand_ThumbTip),
+    # Index
+    (HB.Hand_Wrist, HB.Hand_IndexMetacarpal),
+    (HB.Hand_IndexMetacarpal, HB.Hand_IndexProximal),
+    (HB.Hand_IndexProximal, HB.Hand_IndexIntermediate),
+    (HB.Hand_IndexIntermediate, HB.Hand_IndexDistal),
+    (HB.Hand_IndexDistal, HB.Hand_IndexTip),
+    # Middle
+    (HB.Hand_Wrist, HB.Hand_MiddleMetacarpal),
+    (HB.Hand_MiddleMetacarpal, HB.Hand_MiddleProximal),
+    (HB.Hand_MiddleProximal, HB.Hand_MiddleIntermediate),
+    (HB.Hand_MiddleIntermediate, HB.Hand_MiddleDistal),
+    (HB.Hand_MiddleDistal, HB.Hand_MiddleTip),
+    # Ring
+    (HB.Hand_Wrist, HB.Hand_RingMetacarpal),
+    (HB.Hand_RingMetacarpal, HB.Hand_RingProximal),
+    (HB.Hand_RingProximal, HB.Hand_RingIntermediate),
+    (HB.Hand_RingIntermediate, HB.Hand_RingDistal),
+    (HB.Hand_RingDistal, HB.Hand_RingTip),
+    # Little
+    (HB.Hand_Wrist, HB.Hand_LittleMetacarpal),
+    (HB.Hand_LittleMetacarpal, HB.Hand_LittleProximal),
+    (HB.Hand_LittleProximal, HB.Hand_LittleIntermediate),
+    (HB.Hand_LittleIntermediate, HB.Hand_LittleDistal),
+    (HB.Hand_LittleDistal, HB.Hand_LittleTip),
+    # Palm
+    (HB.Hand_Wrist, HB.Hand_Palm),
+]
+
+BODY_SKELETON_CONNECTIONS = [
+    # Spine
+    (BB.Body_Root, BB.Body_Hips),
+    (BB.Body_Hips, BB.Body_SpineLower),
+    (BB.Body_SpineLower, BB.Body_SpineMiddle),
+    (BB.Body_SpineMiddle, BB.Body_SpineUpper),
+    (BB.Body_SpineUpper, BB.Body_Chest),
+    # Head
+    (BB.Body_Chest, BB.Body_Neck),
+    (BB.Body_Neck, BB.Body_Head),
+    # Left arm
+    (BB.Body_Chest, BB.Body_LeftShoulder),
+    (BB.Body_LeftShoulder, BB.Body_LeftScapula),
+    (BB.Body_LeftScapula, BB.Body_LeftArmUpper),
+    (BB.Body_LeftArmUpper, BB.Body_LeftArmLower),
+    (BB.Body_LeftArmLower, BB.Body_LeftHandWristTwist),
+    (BB.Body_LeftHandWristTwist, BB.Body_LeftHandWrist),
+    # Right arm
+    (BB.Body_Chest, BB.Body_RightShoulder),
+    (BB.Body_RightShoulder, BB.Body_RightScapula),
+    (BB.Body_RightScapula, BB.Body_RightArmUpper),
+    (BB.Body_RightArmUpper, BB.Body_RightArmLower),
+    (BB.Body_RightArmLower, BB.Body_RightHandWristTwist),
+    (BB.Body_RightHandWristTwist, BB.Body_RightHandWrist),
+    # Left Hand
+    (BB.Body_LeftHandWrist, BB.Body_LeftHandPalm),
+    (BB.Body_LeftHandWrist, BB.Body_LeftHandThumbMetacarpal),
+    (BB.Body_LeftHandThumbMetacarpal, BB.Body_LeftHandThumbProximal),
+    (BB.Body_LeftHandThumbProximal, BB.Body_LeftHandThumbDistal),
+    (BB.Body_LeftHandThumbDistal, BB.Body_LeftHandThumbTip),
+    (BB.Body_LeftHandWrist, BB.Body_LeftHandIndexMetacarpal),
+    (BB.Body_LeftHandIndexMetacarpal, BB.Body_LeftHandIndexProximal),
+    (BB.Body_LeftHandIndexProximal, BB.Body_LeftHandIndexIntermediate),
+    (BB.Body_LeftHandIndexIntermediate, BB.Body_LeftHandIndexDistal),
+    (BB.Body_LeftHandIndexDistal, BB.Body_LeftHandIndexTip),
+    (BB.Body_LeftHandWrist, BB.Body_LeftHandMiddleMetacarpal),
+    (BB.Body_LeftHandMiddleMetacarpal, BB.Body_LeftHandMiddleProximal),
+    (BB.Body_LeftHandMiddleProximal, BB.Body_LeftHandMiddleIntermediate),
+    (BB.Body_LeftHandMiddleIntermediate, BB.Body_LeftHandMiddleDistal),
+    (BB.Body_LeftHandMiddleDistal, BB.Body_LeftHandMiddleTip),
+    (BB.Body_LeftHandWrist, BB.Body_LeftHandRingMetacarpal),
+    (BB.Body_LeftHandRingMetacarpal, BB.Body_LeftHandRingProximal),
+    (BB.Body_LeftHandRingProximal, BB.Body_LeftHandRingIntermediate),
+    (BB.Body_LeftHandRingIntermediate, BB.Body_LeftHandRingDistal),
+    (BB.Body_LeftHandRingDistal, BB.Body_LeftHandRingTip),
+    (BB.Body_LeftHandWrist, BB.Body_LeftHandLittleMetacarpal),
+    (BB.Body_LeftHandLittleMetacarpal, BB.Body_LeftHandLittleProximal),
+    (BB.Body_LeftHandLittleProximal, BB.Body_LeftHandLittleIntermediate),
+    (BB.Body_LeftHandLittleIntermediate, BB.Body_LeftHandLittleDistal),
+    (BB.Body_LeftHandLittleDistal, BB.Body_LeftHandLittleTip),
+    # Right Hand
+    (BB.Body_RightHandWrist, BB.Body_RightHandPalm),
+    (BB.Body_RightHandWrist, BB.Body_RightHandThumbMetacarpal),
+    (BB.Body_RightHandThumbMetacarpal, BB.Body_RightHandThumbProximal),
+    (BB.Body_RightHandThumbProximal, BB.Body_RightHandThumbDistal),
+    (BB.Body_RightHandThumbDistal, BB.Body_RightHandThumbTip),
+    (BB.Body_RightHandWrist, BB.Body_RightHandIndexMetacarpal),
+    (BB.Body_RightHandIndexMetacarpal, BB.Body_RightHandIndexProximal),
+    (BB.Body_RightHandIndexProximal, BB.Body_RightHandIndexIntermediate),
+    (BB.Body_RightHandIndexIntermediate, BB.Body_RightHandIndexDistal),
+    (BB.Body_RightHandIndexDistal, BB.Body_RightHandIndexTip),
+    (BB.Body_RightHandWrist, BB.Body_RightHandMiddleMetacarpal),
+    (BB.Body_RightHandMiddleMetacarpal, BB.Body_RightHandMiddleProximal),
+    (BB.Body_RightHandMiddleProximal, BB.Body_RightHandMiddleIntermediate),
+    (BB.Body_RightHandMiddleIntermediate, BB.Body_RightHandMiddleDistal),
+    (BB.Body_RightHandMiddleDistal, BB.Body_RightHandMiddleTip),
+    (BB.Body_RightHandWrist, BB.Body_RightHandRingMetacarpal),
+    (BB.Body_RightHandRingMetacarpal, BB.Body_RightHandRingProximal),
+    (BB.Body_RightHandRingProximal, BB.Body_RightHandRingIntermediate),
+    (BB.Body_RightHandRingIntermediate, BB.Body_RightHandRingDistal),
+    (BB.Body_RightHandRingDistal, BB.Body_RightHandRingTip),
+    (BB.Body_RightHandWrist, BB.Body_RightHandLittleMetacarpal),
+    (BB.Body_RightHandLittleMetacarpal, BB.Body_RightHandLittleProximal),
+    (BB.Body_RightHandLittleProximal, BB.Body_RightHandLittleIntermediate),
+    (BB.Body_RightHandLittleIntermediate, BB.Body_RightHandLittleDistal),
+    (BB.Body_RightHandLittleDistal, BB.Body_RightHandLittleTip),
+]
+
 FULL_BODY_SKELETON_CONNECTIONS = [
     # Spine
+    (FB.FullBody_Root, FB.FullBody_Hips),
     (FB.FullBody_Hips, FB.FullBody_SpineLower),
     (FB.FullBody_SpineLower, FB.FullBody_SpineMiddle),
     (FB.FullBody_SpineMiddle, FB.FullBody_SpineUpper),
@@ -335,25 +477,36 @@ FULL_BODY_SKELETON_CONNECTIONS = [
     (FB.FullBody_Neck, FB.FullBody_Head),
     # Left arm
     (FB.FullBody_Chest, FB.FullBody_LeftShoulder),
-    (FB.FullBody_LeftShoulder, FB.FullBody_LeftArmUpper),
+    (FB.FullBody_LeftShoulder, FB.FullBody_LeftScapula),
+    (FB.FullBody_LeftScapula, FB.FullBody_LeftArmUpper),
     (FB.FullBody_LeftArmUpper, FB.FullBody_LeftArmLower),
-    (FB.FullBody_LeftArmLower, FB.FullBody_LeftHandWrist),
+    (FB.FullBody_LeftArmLower, FB.FullBody_LeftHandWristTwist),
+    (FB.FullBody_LeftHandWristTwist, FB.FullBody_LeftHandWrist),
     # Right arm
     (FB.FullBody_Chest, FB.FullBody_RightShoulder),
-    (FB.FullBody_RightShoulder, FB.FullBody_RightArmUpper),
+    (FB.FullBody_RightShoulder, FB.FullBody_RightScapula),
+    (FB.FullBody_RightScapula, FB.FullBody_RightArmUpper),
     (FB.FullBody_RightArmUpper, FB.FullBody_RightArmLower),
-    (FB.FullBody_RightArmLower, FB.FullBody_RightHandWrist),
+    (FB.FullBody_RightArmLower, FB.FullBody_RightHandWristTwist),
+    (FB.FullBody_RightHandWristTwist, FB.FullBody_RightHandWrist),
     # Left leg
     (FB.FullBody_Hips, FB.FullBody_LeftUpperLeg),
     (FB.FullBody_LeftUpperLeg, FB.FullBody_LeftLowerLeg),
-    (FB.FullBody_LeftLowerLeg, FB.FullBody_LeftFootAnkle),
-    (FB.FullBody_LeftFootAnkle, FB.FullBody_LeftFootBall),
+    (FB.FullBody_LeftLowerLeg, FB.FullBody_LeftFootAnkleTwist),
+    (FB.FullBody_LeftFootAnkleTwist, FB.FullBody_LeftFootAnkle),
+    (FB.FullBody_LeftFootAnkle, FB.FullBody_LeftFootSubtalar),
+    (FB.FullBody_LeftFootSubtalar, FB.FullBody_LeftFootTransverse),
+    (FB.FullBody_LeftFootTransverse, FB.FullBody_LeftFootBall),
     # Right leg
     (FB.FullBody_Hips, FB.FullBody_RightUpperLeg),
     (FB.FullBody_RightUpperLeg, FB.FullBody_RightLowerLeg),
-    (FB.FullBody_RightLowerLeg, FB.FullBody_RightFootAnkle),
-    (FB.FullBody_RightFootAnkle, FB.FullBody_RightFootBall),
+    (FB.FullBody_RightLowerLeg, FB.FullBody_RightFootAnkleTwist),
+    (FB.FullBody_RightFootAnkleTwist, FB.FullBody_RightFootAnkle),
+    (FB.FullBody_RightFootAnkle, FB.FullBody_RightFootSubtalar),
+    (FB.FullBody_RightFootSubtalar, FB.FullBody_RightFootTransverse),
+    (FB.FullBody_RightFootTransverse, FB.FullBody_RightFootBall),
     # Left Hand
+    (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandPalm),
     (FB.FullBody_LeftHandWrist, FB.FullBody_LeftHandThumbMetacarpal),
     (FB.FullBody_LeftHandThumbMetacarpal, FB.FullBody_LeftHandThumbProximal),
     (FB.FullBody_LeftHandThumbProximal, FB.FullBody_LeftHandThumbDistal),
@@ -379,6 +532,7 @@ FULL_BODY_SKELETON_CONNECTIONS = [
     (FB.FullBody_LeftHandLittleIntermediate, FB.FullBody_LeftHandLittleDistal),
     (FB.FullBody_LeftHandLittleDistal, FB.FullBody_LeftHandLittleTip),
     # Right Hand
+    (FB.FullBody_RightHandWrist, FB.FullBody_RightHandPalm),
     (FB.FullBody_RightHandWrist, FB.FullBody_RightHandThumbMetacarpal),
     (FB.FullBody_RightHandThumbMetacarpal, FB.FullBody_RightHandThumbProximal),
     (FB.FullBody_RightHandThumbProximal, FB.FullBody_RightHandThumbDistal),
@@ -404,6 +558,20 @@ FULL_BODY_SKELETON_CONNECTIONS = [
     (FB.FullBody_RightHandLittleIntermediate, FB.FullBody_RightHandLittleDistal),
     (FB.FullBody_RightHandLittleDistal, FB.FullBody_RightHandLittleTip),
 ]
+
+
+def get_skeleton_connections(skeleton_type: SkeletonType):
+    """Returns the bone connections for a given skeleton type."""
+    if skeleton_type in (SkeletonType.OVRHandLeft, SkeletonType.OVRHandRight):
+        return OVR_HAND_SKELETON_CONNECTIONS
+    if skeleton_type in (SkeletonType.HandLeft, SkeletonType.HandRight):
+        return HAND_SKELETON_CONNECTIONS
+    if skeleton_type == SkeletonType.Body:
+        return BODY_SKELETON_CONNECTIONS
+    if skeleton_type == SkeletonType.FullBody:
+        return FULL_BODY_SKELETON_CONNECTIONS
+    return []
+
 
 # --- Example Usage ---
 if __name__ == "__main__":
@@ -457,3 +625,17 @@ if __name__ == "__main__":
     selected_bone = BodyBoneId.Body_Root
     if selected_bone is BodyBoneId.Body_Root:
         print("\nCorrectly identified Body_Root using 'is'.")
+
+    # Example 4: Get skeleton connections
+    print("\n--- Skeleton Connections Example ---")
+    full_body_connections = get_skeleton_connections(SkeletonType.FullBody)
+    print(f"Number of connections in FullBody skeleton: {len(full_body_connections)}")
+    print("First 5 connections:")
+    for parent, child in full_body_connections[:5]:
+        print(f"  {parent.name} -> {child.name}")
+
+    hand_connections = get_skeleton_connections(SkeletonType.HandLeft)
+    print(f"\nNumber of connections in Hand skeleton: {len(hand_connections)}")
+    print("First 5 connections:")
+    for parent, child in hand_connections[:5]:
+        print(f"  {parent.name} -> {child.name}")
