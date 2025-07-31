@@ -5,10 +5,31 @@ import sys
 from loguru import logger
 
 from . import __about__
+from .schemas.ovr_skeletons import (
+    FULL_BODY_SKELETON_CONNECTIONS,
+    BodyBoneId,
+    FullBodyBoneId,
+    HandBoneId,
+    SkeletonType,
+    XRHandBoneId,
+    get_bone_label,
+)
 from .sources.base import VideoSource
 from .transforms.base import VideoTransform
 
-__all__ = ["__version__", "VideoSource", "VideoTransform", "logger"]
+__all__ = [
+    "__version__",
+    "VideoSource",
+    "VideoTransform",
+    "logger",
+    "HandBoneId",
+    "XRHandBoneId",
+    "BodyBoneId",
+    "FullBodyBoneId",
+    "SkeletonType",
+    "get_bone_label",
+    "FULL_BODY_SKELETON_CONNECTIONS",
+]
 __version__ = __about__.version
 
 # Set up logging for the library.

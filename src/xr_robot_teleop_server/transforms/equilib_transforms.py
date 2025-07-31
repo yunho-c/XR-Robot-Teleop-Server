@@ -1,7 +1,7 @@
 import numpy as np
 from equilib import Equi2Pers
 
-from xr_robot_teleop_server.transforms import VideoTransform
+from .base import VideoTransform
 
 
 class EquilibEqui2Pers(VideoTransform):

@@ -3,7 +3,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from xr_robot_teleop_server.sources import VideoSource
+from .base import VideoSource
 
 
 class OpenCVFileSource(VideoSource):

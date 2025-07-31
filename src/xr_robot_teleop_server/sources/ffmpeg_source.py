@@ -5,9 +5,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from xr_robot_teleop_server.sources import VideoSource
-
 from .. import logger
+from .base import VideoSource
 
 _available_hw_accels = None
 
