@@ -1,3 +1,24 @@
+"""
+Defines Python enumerations for tracking skeleton bones in XR applications.
+
+This module provides standardized integer constants for identifying bones in
+various skeleton types, including legacy hand, OpenXR hand, and full-body
+skeletons. These enums are essential for interpreting tracking data from XR
+devices and APIs.
+
+The definitions, particularly for `XRHandBoneId`, are aligned with the
+conventions established by the OpenXR specification. For more details on the
+underlying standards, see the official OpenXR documentation:
+https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html
+
+Key Enums:
+- HandBoneId: For legacy hand tracking systems.
+- XRHandBoneId: For hand tracking compliant with the OpenXR standard.
+- BodyBoneId: For upper-body tracking.
+- FullBodyBoneId: For full-body tracking, including legs.
+- SkeletonType: To distinguish between the different kinds of skeletons.
+"""
+
 import enum
 
 
