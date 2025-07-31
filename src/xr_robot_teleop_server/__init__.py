@@ -5,13 +5,13 @@ import sys
 from loguru import logger
 
 from . import __about__
-from .schemas.ovr_skeletons import (
+from .schemas.openxr_skeletons import (
     FULL_BODY_SKELETON_CONNECTIONS,
     BodyBoneId,
     FullBodyBoneId,
     HandBoneId,
+    OVRHandBoneId,
     SkeletonType,
-    XRHandBoneId,
     get_bone_label,
 )
 from .sources.base import VideoSource
@@ -23,7 +23,7 @@ __all__ = [
     "VideoTransform",
     "logger",
     "HandBoneId",
-    "XRHandBoneId",
+    "OVRHandBoneId",
     "BodyBoneId",
     "FullBodyBoneId",
     "SkeletonType",

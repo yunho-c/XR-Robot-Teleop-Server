@@ -11,7 +11,7 @@ import numpy as np
 from aiortc import MediaStreamTrack
 from av import VideoFrame
 
-from xr_robot_teleop_server.schemas.ovr_skeletons import (
+from xr_robot_teleop_server.schemas.openxr_skeletons import (
     FULL_BODY_SKELETON_CONNECTIONS,
     FullBodyBoneId,
     SkeletonType,

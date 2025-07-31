@@ -2,18 +2,18 @@
 Defines Python enumerations for tracking skeleton bones in XR applications.
 
 This module provides standardized integer constants for identifying bones in
-various skeleton types, including legacy hand, OpenXR hand, and full-body
+various skeleton types, including legacy OVR hand, OpenXR hand, and full-body
 skeletons. These enums are essential for interpreting tracking data from XR
 devices and APIs.
 
-The definitions, particularly for `XRHandBoneId`, are aligned with the
+The definitions, particularly for `HandBoneId`, are aligned with the
 conventions established by the OpenXR specification. For more details on the
 underlying standards, see the official OpenXR documentation:
 https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html
 
 Key Enums:
-- HandBoneId: For legacy hand tracking systems.
-- XRHandBoneId: For hand tracking compliant with the OpenXR standard.
+- OVRHandBoneId: For legacy OVR hand tracking systems.
+- HandBoneId: For hand tracking compliant with the OpenXR standard.
 - BodyBoneId: For upper-body tracking.
 - FullBodyBoneId: For full-body tracking, including legs.
 - SkeletonType: To distinguish between the different kinds of skeletons.
@@ -22,78 +22,78 @@ Key Enums:
 import enum
 
 
+class OVRHandBoneId(enum.IntEnum):
+    """Specifies the bone IDs for a legacy OVR hand skeleton."""
+
+    OVRHand_Start = 0
+    OVRHand_WristRoot = 0
+    OVRHand_ForearmStub = 1
+    OVRHand_Thumb0 = 2
+    OVRHand_Thumb1 = 3
+    OVRHand_Thumb2 = 4
+    OVRHand_Thumb3 = 5
+    OVRHand_Index1 = 6
+    OVRHand_Index2 = 7
+    OVRHand_Index3 = 8
+    OVRHand_Middle1 = 9
+    OVRHand_Middle2 = 10
+    OVRHand_Middle3 = 11
+    OVRHand_Ring1 = 12
+    OVRHand_Ring2 = 13
+    OVRHand_Ring3 = 14
+    OVRHand_Pinky0 = 15
+    OVRHand_Pinky1 = 16
+    OVRHand_Pinky2 = 17
+    OVRHand_Pinky3 = 18
+    OVRHand_MaxSkinnable = 19
+    OVRHand_ThumbTip = 19
+    OVRHand_IndexTip = 20
+    OVRHand_MiddleTip = 21
+    OVRHand_RingTip = 22
+    OVRHand_PinkyTip = 23
+    OVRHand_End = 24
+
+    @classmethod
+    def _missing_(cls, value):
+        return "OVRHand_Unknown"
+
+
 class HandBoneId(enum.IntEnum):
-    """Specifies the bone IDs for a legacy hand skeleton."""
+    """Specifies the bone IDs for a hand skeleton, following OpenXR standards."""
 
     Hand_Start = 0
-    Hand_WristRoot = 0
-    Hand_ForearmStub = 1
-    Hand_Thumb0 = 2
-    Hand_Thumb1 = 3
-    Hand_Thumb2 = 4
-    Hand_Thumb3 = 5
-    Hand_Index1 = 6
-    Hand_Index2 = 7
-    Hand_Index3 = 8
-    Hand_Middle1 = 9
-    Hand_Middle2 = 10
-    Hand_Middle3 = 11
-    Hand_Ring1 = 12
-    Hand_Ring2 = 13
-    Hand_Ring3 = 14
-    Hand_Pinky0 = 15
-    Hand_Pinky1 = 16
-    Hand_Pinky2 = 17
-    Hand_Pinky3 = 18
-    Hand_MaxSkinnable = 19
-    Hand_ThumbTip = 19
-    Hand_IndexTip = 20
-    Hand_MiddleTip = 21
-    Hand_RingTip = 22
-    Hand_PinkyTip = 23
-    Hand_End = 24
+    Hand_Palm = 0
+    Hand_Wrist = 1
+    Hand_ThumbMetacarpal = 2
+    Hand_ThumbProximal = 3
+    Hand_ThumbDistal = 4
+    Hand_ThumbTip = 5
+    Hand_IndexMetacarpal = 6
+    Hand_IndexProximal = 7
+    Hand_IndexIntermediate = 8
+    Hand_IndexDistal = 9
+    Hand_IndexTip = 10
+    Hand_MiddleMetacarpal = 11
+    Hand_MiddleProximal = 12
+    Hand_MiddleIntermediate = 13
+    Hand_MiddleDistal = 14
+    Hand_MiddleTip = 15
+    Hand_RingMetacarpal = 16
+    Hand_RingProximal = 17
+    Hand_RingIntermediate = 18
+    Hand_RingDistal = 19
+    Hand_RingTip = 20
+    Hand_LittleMetacarpal = 21
+    Hand_LittleProximal = 22
+    Hand_LittleIntermediate = 23
+    Hand_LittleDistal = 24
+    Hand_LittleTip = 25
+    Hand_Max = 26
+    Hand_End = 26
 
     @classmethod
     def _missing_(cls, value):
         return "Hand_Unknown"
-
-
-class XRHandBoneId(enum.IntEnum):
-    """Specifies the bone IDs for an XR hand skeleton, following OpenXR standards."""
-
-    XRHand_Start = 0
-    XRHand_Palm = 0
-    XRHand_Wrist = 1
-    XRHand_ThumbMetacarpal = 2
-    XRHand_ThumbProximal = 3
-    XRHand_ThumbDistal = 4
-    XRHand_ThumbTip = 5
-    XRHand_IndexMetacarpal = 6
-    XRHand_IndexProximal = 7
-    XRHand_IndexIntermediate = 8
-    XRHand_IndexDistal = 9
-    XRHand_IndexTip = 10
-    XRHand_MiddleMetacarpal = 11
-    XRHand_MiddleProximal = 12
-    XRHand_MiddleIntermediate = 13
-    XRHand_MiddleDistal = 14
-    XRHand_MiddleTip = 15
-    XRHand_RingMetacarpal = 16
-    XRHand_RingProximal = 17
-    XRHand_RingIntermediate = 18
-    XRHand_RingDistal = 19
-    XRHand_RingTip = 20
-    XRHand_LittleMetacarpal = 21
-    XRHand_LittleProximal = 22
-    XRHand_LittleIntermediate = 23
-    XRHand_LittleDistal = 24
-    XRHand_LittleTip = 25
-    XRHand_Max = 26
-    XRHand_End = 26
-
-    @classmethod
-    def _missing_(cls, value):
-        return "XRHand_Unknown"
 
 
 class BodyBoneId(enum.IntEnum):
@@ -273,12 +273,12 @@ class FullBodyBoneId(enum.IntEnum):
 
 
 # A type hint for any of the bone ID enums
-AnyBoneId = HandBoneId | XRHandBoneId | BodyBoneId | FullBodyBoneId
+AnyBoneId = OVRHandBoneId | HandBoneId | BodyBoneId | FullBodyBoneId
 
 # Aliases for brevity
-HB = HandBoneId
+OVRHB = OVRHandBoneId
 BB = BodyBoneId
-XHB = XRHandBoneId
+HB = HandBoneId
 FB = FullBodyBoneId
 
 
@@ -286,12 +286,12 @@ class SkeletonType(enum.Enum):
     """Corresponds to OVRSkeleton.SkeletonType, indicating the skeleton's nature."""
 
     None_ = -1
-    HandLeft = 0
-    HandRight = 1
+    OVRHandLeft = 0
+    OVRHandRight = 1
     Body = 2
     FullBody = 3
-    XRHandLeft = 4
-    XRHandRight = 5
+    HandLeft = 4
+    HandRight = 5
 
 
 def get_bone_label(skeleton_type: SkeletonType, bone_id: int) -> str:
@@ -306,10 +306,10 @@ def get_bone_label(skeleton_type: SkeletonType, bone_id: int) -> str:
         The official string name of the bone.
     """
     enum_class = None
-    if skeleton_type in (SkeletonType.HandLeft, SkeletonType.HandRight):
+    if skeleton_type in (SkeletonType.OVRHandLeft, SkeletonType.OVRHandRight):
+        enum_class = OVRHandBoneId
+    elif skeleton_type in (SkeletonType.HandLeft, SkeletonType.HandRight):
         enum_class = HandBoneId
-    elif skeleton_type in (SkeletonType.XRHandLeft, SkeletonType.XRHandRight):
-        enum_class = XRHandBoneId
     elif skeleton_type == SkeletonType.Body:
         enum_class = BodyBoneId
     elif skeleton_type == SkeletonType.FullBody:
@@ -323,56 +323,6 @@ def get_bone_label(skeleton_type: SkeletonType, bone_id: int) -> str:
         return str(bone)
     return bone.name
 
-
-# --- Example Usage ---
-if __name__ == "__main__":
-    print("--- Refactored Skeleton Enums Example ---")
-
-    # Example 1: Accessing a specific bone and its value
-    wrist_bone = HB.Hand_WristRoot
-    print(f"Hand bone: {wrist_bone.name}, Value: {wrist_bone.value}")
-
-    # Example 2: Looking up a bone by its value in a specific enum
-    # Note: Hand_ThumbTip and Hand_MaxSkinnable share value 19
-    thumb_tip_bone = HB(19)
-    print(f"Hand bone with value 19: {thumb_tip_bone.name} (Canonical is Hand_MaxSkinnable)")
-
-    # Example 3: Demonstrating type safety and clarity
-    spine_bone = BB.Body_SpineUpper
-    print(
-        "Body bone: "
-        f"{get_bone_label(SkeletonType.Body, spine_bone.value)}, "
-        f"Value: {spine_bone.value}"
-    )
-
-    xr_thumb_tip = XHB.XRHand_ThumbTip
-    # Note: XRHand can be for left or right, the enum is the same.
-    print(
-        "XR Hand bone: "
-        f"{get_bone_label(SkeletonType.XRHandLeft, xr_thumb_tip.value)}, "
-        f"Value: {xr_thumb_tip.value}"
-    )
-
-    # Aliasing is now contained within each enum
-    print("-" * 20)
-    print("Demonstrating aliasing within a single enum:")
-    print(f"Is Hand_WristRoot the same as Hand_Start? {HB.Hand_WristRoot is HB.Hand_Start}")
-
-    print("\nDemonstrating that different enums are distinct:")
-    try:
-        # This comparison across different enum types is not meaningful
-        # and highlights the improved type safety.
-        print("Comparing HandBoneId.Hand_Start to BodyBoneId.Body_Start...")
-        are_equal = HandBoneId.Hand_Start == BodyBoneId.Body_Start
-        print(f"Are they equal? {are_equal}")  # This will likely be False
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-    # Example of how to robustly check for a bone's identity
-    selected_bone = BodyBoneId.Body_Root
-    if selected_bone is BodyBoneId.Body_Root:
-        print("\nCorrectly identified Body_Root using 'is'.")
 
 FULL_BODY_SKELETON_CONNECTIONS = [
     # Spine
@@ -454,3 +404,56 @@ FULL_BODY_SKELETON_CONNECTIONS = [
     (FB.FullBody_RightHandLittleIntermediate, FB.FullBody_RightHandLittleDistal),
     (FB.FullBody_RightHandLittleDistal, FB.FullBody_RightHandLittleTip),
 ]
+
+# --- Example Usage ---
+if __name__ == "__main__":
+    print("--- Refactored Skeleton Enums Example ---")
+
+    # Example 1: Accessing a specific bone and its value
+    wrist_bone = OVRHB.OVRHand_WristRoot
+    print(f"OVR Hand bone: {wrist_bone.name}, Value: {wrist_bone.value}")
+
+    # Example 2: Looking up a bone by its value in a specific enum
+    # Note: OVRHand_ThumbTip and OVRHand_MaxSkinnable share value 19
+    thumb_tip_bone = OVRHB(19)
+    print(f"OVR Hand bone with value 19: {thumb_tip_bone.name} (Canonical is OVRHand_MaxSkinnable)")
+
+    # Example 3: Demonstrating type safety and clarity
+    spine_bone = BB.Body_SpineUpper
+    print(
+        "Body bone: "
+        f"{get_bone_label(SkeletonType.Body, spine_bone.value)}, "
+        f"Value: {spine_bone.value}"
+    )
+
+    thumb_tip = HB.Hand_ThumbTip
+    # Note: Hand can be for left or right, the enum is the same.
+    print(
+        "Hand bone: "
+        f"{get_bone_label(SkeletonType.HandLeft, thumb_tip.value)}, "
+        f"Value: {thumb_tip.value}"
+    )
+
+    # Aliasing is now contained within each enum
+    print("-" * 20)
+    print("Demonstrating aliasing within a single enum:")
+    print(
+        "Is OVRHand_WristRoot the same as OVRHand_Start? "
+        f"{OVRHB.OVRHand_WristRoot is OVRHB.OVRHand_Start}"
+    )
+
+    print("\nDemonstrating that different enums are distinct:")
+    try:
+        # This comparison across different enum types is not meaningful
+        # and highlights the improved type safety.
+        print("Comparing OVRHandBoneId.OVRHand_Start to BodyBoneId.Body_Start...")
+        are_equal = OVRHandBoneId.OVRHand_Start == BodyBoneId.Body_Start
+        print(f"Are they equal? {are_equal}")  # This will likely be False
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    # Example of how to robustly check for a bone's identity
+    selected_bone = BodyBoneId.Body_Root
+    if selected_bone is BodyBoneId.Body_Root:
+        print("\nCorrectly identified Body_Root using 'is'.")

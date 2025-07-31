@@ -1433,3 +1433,18 @@ By using classes and keypoints together, you create a structured and well-annota
   Overall, you have a professional and robust project structure. The foundation is solid. Adding a tests directory would be the immediate next step to ensure your code is reliable and
   maintainable.
 ```
+
+```
+╭───────────────────────────────────────────────────────────────────────────────────────────────────╮
+│  > Do you think it's better to move the connection constant to above the __main__ guarded block?  │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+✦ Yes, that's a great suggestion. Moving the FULL_BODY_SKELETON_CONNECTIONS constant above the if __name__ == "__main__" block is better for a few reasons:
+
+   1. Standard Convention: It follows the common Python style (PEP 8) of defining all module-level constants, classes, and functions before the script's entry point.
+   2. Readability: It groups all the module's definitions together, making the code easier to read and understand. The __main__ block is for runnable examples, while the constant is a definition
+      that other modules might import.
+   3. Import Logic: It ensures that the constant is defined and available for any other module that might import it, regardless of how the file is processed.
+
+  I'll make that change now.
+```
