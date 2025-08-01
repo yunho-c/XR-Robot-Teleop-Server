@@ -11,6 +11,7 @@ import numpy as np
 from aiortc import MediaStreamTrack
 from av import VideoFrame
 
+from xr_robot_teleop_server import configure_logging
 from xr_robot_teleop_server.schemas.openxr_skeletons import (
     FULL_BODY_SKELETON_CONNECTIONS,
     FullBodyBoneId,
@@ -248,16 +249,25 @@ def create_video_track(state: AppState):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="XR 360 Camera Streamer")
     parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
+    parser.add_argument(
         "--visualize", action="store_true", help="Enable 3D visualization with rerun."
     )
     args = parser.parse_args()
+
+    # Configure logging
+    configure_logging(level=args.log_level)
 
     rr = None
     state_factory = AppState
     if VISUALIZE or args.visualize:
         try:
-            import matplotlib.cm as cm
             import rerun as rr
+            from matplotlib import colormaps as cm
         except ImportError:
             print("Please install OpenCV, rerun SDK and matplotlib: pip install -e .[viz]")
             exit(1)

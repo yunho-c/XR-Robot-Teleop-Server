@@ -1517,3 +1517,542 @@ This process effectively rewrites the commit history from the point you amended,
 ---
 ---
 
+```
+╭───────────────────────────────────────────────────────────────────────────╮
+│  > Could you add a `verbose` param (False by default) to `WebRTCServer`?  │
+╰───────────────────────────────────────────────────────────────────────────╯
+
+✦ Of course. I'll add a verbose parameter to the WebRTCServer class, with a default value of False. First, I'll examine the contents of src/xr_robot_teleop_server/streaming/webrtc_server.py to
+  understand the current implementation of the WebRTCServer class.
+ ╭───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  ReadFile src/streaming/webrtc_server.py                                                                                                                                                        │
+ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Okay, I will add a verbose parameter to the WebRTCServer class in src/xr_robot_teleop_server/streaming/webrtc_server.py. I'll also update the logging statements to respect this parameter. Before
+  making changes, I'll search the codebase for usages of WebRTCServer to see if any other files need to be updated.
+ ╭───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  SearchText 'WebRTCServer\('                                                                                                                                                                    │
+ │                                                                                                                                                                                                   │
+ │    Found 1 match                                                                                                                                                                                  │
+ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ WebRTCServer is used in examples/record_full_body_pose.py. I'll examine that file.
+ ╭───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  ReadFile examples/record_full_body_pose.py                                                                                                                                                     │
+ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ The record_full_body_pose.py example uses WebRTCServer with default arguments. I'll add verbose=True to its instantiation to show its usage. Now, I'll apply this change and the related
+  modifications to webrtc_server.py.
+ ╭───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ -  WriteFile Writing to src/streaming/webrtc_server.py                                                                                                                                            │
+ │                                                                                                                                                                                                   │
+ │     25       video_track_factory=None,                                                                                                                                                            │
+ │     26       datachannel_handlers=None,                                                                                                                                                           │
+ │     27       state_factory=None,                                                                                                                                                                  │
+ │     28 +     verbose=False,                                                                                                                                                                       │
+ │     29   ):                                                                                                                                                                                       │
+ │     30       """                                                                                                                                                                                  │
+ │     31       Initializes the WebRTC Server.                                                                                                                                                       │
+ │    ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════           │
+ │     41               keyword argument if their signature includes `state` or `**kwargs`.                                                                                                          │
+ │     42           state_factory (callable, optional): A function or class that, when called, returns                                                                                               │
+ │     43               a new state object for the peer connection.                                                                                                                                  │
+ │     44 +         verbose (bool, optional): If True, enables detailed logging. Defaults to False.                                                                                                  │
+ │     45       """                                                                                                                                                                                  │
+ │     46       self.host = host                                                                                                                                                                     │
+ │     47       self.port = port                                                                                                                                                                     │
+ │     48       self.state_factory = state_factory                                                                                                                                                   │
+ │     49 +     self.verbose = verbose                                                                                                                                                               │
+ │     50       self.app = FastAPI(lifespan=self.lifespan)                                                                                                                                           │
+ │     51       self.pcs = set()  # global storage for peer connection(s)                                                                                                                            │
+ │     52                                                                                                                                                                                            │
+ │    ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════           │
+ │    128       pc = RTCPeerConnection()                                                                                                                                                             │
+ │    129       pc_id = f"PeerConnection({uuid.uuid4()})"                                                                                                                                            │
+ │    130       self.pcs.add(pc)                                                                                                                                                                     │
+ │    131 +     if self.verbose:                                                                                                                                                                     │
+ │    132           logger.info(f"{pc_id}: Created for {request.client.host}")                                                                                                                       │
+ │    133                                                                                                                                                                                            │
+ │    134       # Create a state object for peer connection                                                                                                                                          │
+ │    135       state = None                                                                                                                                                                         │
+ │    136       if self.state_factory:                                                                                                                                                               │
+ │    137           state = self.state_factory()                                                                                                                                                     │
+ │    138 +         if self.verbose:                                                                                                                                                                 │
+ │    139               logger.info(f"{pc_id}: Created state object: {state}")                                                                                                                       │
+ │    140                                                                                                                                                                                            │
+ │    141       # Create a video track if peer connection requests                                                                                                                                   │
+ │    144                                                                                                                                                                                            │
+ │    145           parsed_offer = SessionDescription.parse(offer.sdp)                                                                                                                               │
+ │    146           if any(m.kind == "video" and m.port != 0 for m in parsed_offer.media):                                                                                                           │
+ │    147 +             if self.verbose:                                                                                                                                                             │
+ │    148                   logger.info(f"{pc_id}: Client wants video, creating track.")                                                                                                             │
+ │    149               video_track = await self._video_track_factory(state=state)                                                                                                                   │
+ │    150               pc.addTrack(video_track)                                                                                                                                                     │
+ │    151           else:                                                                                                                                                                            │
+ │    152 +             if self.verbose:                                                                                                                                                             │
+ │    153                   logger.info(f"{pc_id}: Client does not want video, not adding track.")                                                                                                   │
+ │    154       else:                                                                                                                                                                                │
+ │    155           logger.warning(f"{pc_id}: No video_track_factory provided.")                                                                                                                     │
+ │    158       @pc.on("datachannel")                                                                                                                                                                │
+ │    159       def on_datachannel(channel):                                                                                                                                                         │
+ │    160           label = channel.label                                                                                                                                                            │
+ │    161 +         if self.verbose:                                                                                                                                                                 │
+ │    162               logger.info(f"{pc_id}: Data channel '{label}' created.")                                                                                                                     │
+ │    163                                                                                                                                                                                            │
+ │    164           if label in self._datachannel_handlers:                                                                                                                                          │
+ │    166                                                                                                                                                                                            │
+ │    167               @channel.on("message")                                                                                                                                                       │
+ │    168               async def on_message(message):                                                                                                                                               │
+ │    169 +                 if self.verbose:                                                                                                                                                         │
+ │    170                       logger.info(f"{pc_id}: Message on '{label}': {message}")                                                                                                             │
+ │    171                   await handler(message=message, state=state)                                                                                                                              │
+ │    172           else:                                                                                                                                                                            │
+ │    174                                                                                                                                                                                            │
+ │    175       @pc.on("connectionstatechange")                                                                                                                                                      │
+ │    176       async def on_connectionstatechange():                                                                                                                                                │
+ │    177 +         if self.verbose:                                                                                                                                                                 │
+ │    178               logger.info(f"{pc_id}: Connection state is {pc.connectionState}")                                                                                                            │
+ │    179           if pc.connectionState in ("failed", "closed", "disconnected"):                                                                                                                   │
+ │    180               await pc.close()                                                                                                                                                             │
+ │    181               self.pcs.discard(pc)                                                                                                                                                         │
+ │    182 +             if self.verbose:                                                                                                                                                             │
+ │    183                   logger.info(f"{pc_id}: Cleaned up.")                                                                                                                                     │
+ │    184                                                                                                                                                                                            │
+ │    185       try:                                                                                                                                                                                 │
+ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│  > What do you think is the best way to go about this? (I just realized loguru may also offer a verbosity control option)  │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+✦ You've hit on a much better approach. Using a verbose flag for logging is manual and clunky. loguru provides a more elegant and standard way to control verbosity through logging levels.
+
+  Here's how we can do it:
+
+   1. Use `logger.debug()` for Verbose Output: I'll change all the logs that would have been conditional under the verbose flag to use logger.debug() instead of logger.info().
+   2. Control Level at Initialization: I'll add a log_level parameter to WebRTCServer.__init__ (defaulting to "INFO"). This will allow the user to set the desired verbosity when creating a server
+      instance (e.g., "DEBUG", "INFO", "WARNING").
+   3. Update Logger Configuration: The server will then reconfigure the loguru logger to respect this level.
+
+  This is a superior solution because:
+   * It's the idiomatic way to handle logging verbosity.
+   * It avoids cluttering the code with if self.verbose: checks.
+   * It offers more granular control (e.g., "WARNING", "ERROR") beyond a simple boolean flag.
+
+  First, I'll examine src/xr_robot_teleop_server/__init__.py to see how the logger is currently configured.
+ ╭───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  ReadFile ...src/xr_robot_teleop_server/__init__.py                                                                                                                                             │
+ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Okay, the logger is configured in __init__.py to INFO level.
+
+  Here's the plan:
+   1. Modify WebRTCServer.__init__ to accept a log_level parameter.
+   2. In WebRTCServer.__init__, I'll reconfigure the global loguru logger to use the specified level.
+   3. Change the verbose logging statements in webrtc_server.py to use logger.debug().
+   4. Update examples/record_full_body_pose.py to demonstrate setting the log level.
+
+  I'll start by modifying webrtc_server.py.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit src/streaming/webrtc_server.py:     def __init__(... =>     def __init__(...                                                                                                     │
+ │                                                                                                                                                                                          │
+ │    25       video_track_factory=None,                                                                                                                                                    │
+ │    26       datachannel_handlers=None,                                                                                                                                                   │
+ │    27       state_factory=None,                                                                                                                                                          │
+ │    28 +     log_level="INFO",                                                                                                                                                            │
+ │    29   ):                                                                                                                                                                               │
+ │    30       """                                                                                                                                                                          │
+ │    31       Initializes the WebRTC Server.                                                                                                                                               │
+ │    ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════  │
+ │    41               keyword argument if their signature includes `state` or `**kwargs`.                                                                                                  │
+ │    42           state_factory (callable, optional): A function or class that, when called, returns                                                                                       │
+ │    43               a new state object for the peer connection.                                                                                                                          │
+ │    44 +         log_level (str, optional): The logging level for the server. Defaults to "INFO".                                                                                         │
+ │    45       """                                                                                                                                                                          │
+ │    46 +     logger.remove()                                                                                                                                                              │
+ │    47 +     logger.add(sys.stderr, format="{level: <9} {message}", level=log_level)                                                                                                      │
+ │    48 +                                                                                                                                                                                  │
+ │    49       self.host = host                                                                                                                                                             │
+ │    50       self.port = port                                                                                                                                                             │
+ │    51       self.state_factory = state_factory                                                                                                                                           │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Now I'll add import sys to webrtc_server.py and change the logging calls to logger.debug.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit src/streaming/webrtc_server.py: import asyncio... => import asyncio...                                                                                                           │
+ │                                                                                                                                                                                          │
+ │    1   import asyncio                                                                                                                                                                    │
+ │    2   import inspect                                                                                                                                                                    │
+ │    3 + import sys                                                                                                                                                                        │
+ │    4   import uuid                                                                                                                                                                       │
+ │    5   from contextlib import asynccontextmanager                                                                                                                                        │
+ │    6   from functools import wraps                                                                                                                                                       │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit src/streaming/webrtc_server.py: logger.info => logger.debug                                                                                                                      │
+ │                                                                                                                                                                                          │
+ │    Error: Failed to edit, expected 8 occurrences but found 10.                                                                                                                           │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I see. There are more logger.info calls than I expected. I will read the file again to make sure I'm replacing the correct ones.
+ ╭─────────────────────────────────────────────╮
+ │ ✔  ReadFile src/streaming/webrtc_server.py  │
+ ╰─────────────────────────────────────────────╯
+✦ Okay, I see the issue. I should only change the logs that are inside the _create_offer_handler and the related callbacks. The lifespan and run methods should still use logger.info. I will be
+  more specific with the replace tool this time.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit src/streaming/webrtc_server.py:         pc = RTCPeerConnection... =>         pc = RTCPeerConnection...                                                                           │
+ │                                                                                                                                                                                          │
+ │    131   pc = RTCPeerConnection()                                                                                                                                                        │
+ │    132   pc_id = f"PeerConnection({uuid.uuid4()})"                                                                                                                                       │
+ │    133   self.pcs.add(pc)                                                                                                                                                                │
+ │    134 - logger.info(f"{pc_id}: Created for {request.client.host}")                                                                                                                      │
+ │    134 + logger.debug(f"{pc_id}: Created for {request.client.host}")                                                                                                                     │
+ │    135                                                                                                                                                                                   │
+ │    136   # Create a state object for peer connection                                                                                                                                     │
+ │    137   state = None                                                                                                                                                                    │
+ │    138   if self.state_factory:                                                                                                                                                          │
+ │    139       state = self.state_factory()                                                                                                                                                │
+ │    140 -     logger.info(f"{pc_id}: Created state object: {state}")                                                                                                                      │
+ │    140 +     logger.debug(f"{pc_id}: Created state object: {state}")                                                                                                                     │
+ │    141                                                                                                                                                                                   │
+ │    142   # Create a video track if peer connection requests                                                                                                                              │
+ │    143   if self._video_track_factory:                                                                                                                                                   │
+ │    145                                                                                                                                                                                   │
+ │    146       parsed_offer = SessionDescription.parse(offer.sdp)                                                                                                                          │
+ │    147       if any(m.kind == "video" and m.port != 0 for m in parsed_offer.media):                                                                                                      │
+ │    148 -         logger.info(f"{pc_id}: Client wants video, creating track.")                                                                                                            │
+ │    148 +         logger.debug(f"{pc_id}: Client wants video, creating track.")                                                                                                           │
+ │    149           video_track = await self._video_track_factory(state=state)                                                                                                              │
+ │    150           pc.addTrack(video_track)                                                                                                                                                │
+ │    151       else:                                                                                                                                                                       │
+ │    152 -         logger.info(f"{pc_id}: Client does not want video, not adding track.")                                                                                                  │
+ │    152 +         logger.debug(f"{pc_id}: Client does not want video, not adding track.")                                                                                                 │
+ │    153   else:                                                                                                                                                                           │
+ │    154       logger.warning(f"{pc_id}: No video_track_factory provided.")                                                                                                                │
+ │    155                                                                                                                                                                                   │
+ │    157   @pc.on("datachannel")                                                                                                                                                           │
+ │    158   def on_datachannel(channel):                                                                                                                                                    │
+ │    159       label = channel.label                                                                                                                                                       │
+ │    160 -     logger.info(f"{pc_id}: Data channel '{label}' created.")                                                                                                                    │
+ │    160 +     logger.debug(f"{pc_id}: Data channel '{label}' created.")                                                                                                                   │
+ │    161                                                                                                                                                                                   │
+ │    162       if label in self._datachannel_handlers:                                                                                                                                     │
+ │    163           handler = self._datachannel_handlers[label]                                                                                                                             │
+ │    164                                                                                                                                                                                   │
+ │    165           @channel.on("message")                                                                                                                                                  │
+ │    166           async def on_message(message):                                                                                                                                          │
+ │    167 -             logger.info(f"{pc_id}: Message on '{label}': {message}")                                                                                                            │
+ │    167 +             logger.debug(f"{pc_id}: Message on '{label}': {message}")                                                                                                           │
+ │    168               await handler(message=message, state=state)                                                                                                                         │
+ │    169       else:                                                                                                                                                                       │
+ │    170           logger.warning(f"{pc_id}: No handler registered for data channel '{label}'.")                                                                                           │
+ │    171                                                                                                                                                                                   │
+ │    172   @pc.on("connectionstatechange")                                                                                                                                                 │
+ │    173   async def on_connectionstatechange():                                                                                                                                           │
+ │    174 -     logger.info(f"{pc_id}: Connection state is {pc.connectionState}")                                                                                                           │
+ │    174 +     logger.debug(f"{pc_id}: Connection state is {pc.connectionState}")                                                                                                          │
+ │    175       if pc.connectionState in ("failed", "closed", "disconnected"):                                                                                                              │
+ │    176           await pc.close()                                                                                                                                                        │
+ │    177           self.pcs.discard(pc)                                                                                                                                                    │
+ │    178 -         logger.info(f"{pc_id}: Cleaned up.")                                                                                                                                    │
+ │    178 +         logger.debug(f"{pc_id}: Cleaned up.")                                                                                                                                   │
+ │    179                                                                                                                                                                                   │
+ │    180   try:                                                                                                                                                                            │
+ │    181       await pc.setRemoteDescription(offer)                                                                                                                                        │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Now I'll update examples/record_full_body_pose.py to set the log level to DEBUG.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/record_full_body_pose.py:     server = WebRTCServer(... =>     server = WebRTCServer(...                                                                                │
+ │                                                                                                                                                                                          │
+ │    313       video_track_factory=create_video_track,                                                                                                                                     │
+ │    314       datachannel_handlers=data_handlers,                                                                                                                                         │
+ │    315       state_factory=state_factory,                                                                                                                                                │
+ │    316 +     log_level="DEBUG",                                                                                                                                                          │
+ │    317   )                                                                                                                                                                               │
+ │    318                                                                                                                                                                                   │
+ │    319   server.run()                                                                                                                                                                    │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I have finished the requested changes. I modified WebRTCServer to accept a log_level parameter, changed the verbose logging statements to use logger.debug, and updated the example file to
+  demonstrate how to set the log level.
+
+╭───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│  > Please take a look at @src/xr_robot_teleop_server/__init__.py. Is it necessary to remove and add a new logger at WebRTCServer's init?  │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+✦ You are absolutely right. That's an excellent point, and my previous approach was flawed.
+
+  Modifying the global logger configuration within WebRTCServer.__init__ is bad practice. It has unintended side effects, such as overriding any custom logging setup a user might have and
+  causing unpredictable behavior if multiple WebRTCServer instances are created.
+
+  The library should provide a default logging configuration once (as it does in __init__.py), and the application using the library should be responsible for overriding it if needed.
+
+  I will correct this. Here is the plan:
+   1. I will remove the log_level parameter and the logger reconfiguration logic from WebRTCServer.__init__.
+   2. I will update the example file, examples/record_full_body_pose.py, to demonstrate the correct way to change the log level for the application.
+
+  First, I'll revert the changes in src/xr_robot_teleop_server/streaming/webrtc_server.py.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit src/streaming/webrtc_server.py: import asyncio... => import asyncio...                                                                                                           │
+ │                                                                                                                                                                                          │
+ │    1   import asyncio                                                                                                                                                                    │
+ │    2   import inspect                                                                                                                                                                    │
+ │    3 - import sys                                                                                                                                                                        │
+ │    3   import uuid                                                                                                                                                                       │
+ │    4   from contextlib import asynccontextmanager                                                                                                                                        │
+ │    5   from functools import wraps                                                                                                                                                       │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit src/streaming/webrtc_server.py:     def __init__(... =>     def __init__(...                                                                                                     │
+ │                                                                                                                                                                                          │
+ │    25       video_track_factory=None,                                                                                                                                                    │
+ │    26       datachannel_handlers=None,                                                                                                                                                   │
+ │    27       state_factory=None,                                                                                                                                                          │
+ │    28 -     log_level="INFO",                                                                                                                                                            │
+ │    28   ):                                                                                                                                                                               │
+ │    29       """                                                                                                                                                                          │
+ │    30       Initializes the WebRTC Server.                                                                                                                                               │
+ │    ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════  │
+ │    40               keyword argument if their signature includes `state` or `**kwargs`.                                                                                                  │
+ │    41           state_factory (callable, optional): A function or class that, when called, returns                                                                                       │
+ │    42               a new state object for the peer connection.                                                                                                                          │
+ │    44 -         log_level (str, optional): The logging level for the server. Defaults to "INFO".                                                                                         │
+ │    43       """                                                                                                                                                                          │
+ │    46 -     logger.remove()                                                                                                                                                              │
+ │    47 -     logger.add(sys.stderr, format="{level: <9} {message}", level=log_level)                                                                                                      │
+ │    48 -                                                                                                                                                                                  │
+ │    44       self.host = host                                                                                                                                                             │
+ │    45       self.port = port                                                                                                                                                             │
+ │    46       self.state_factory = state_factory                                                                                                                                           │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Now that WebRTCServer is clean, I will update the example file to show how to properly control the log level from the application.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/record_full_body_pose.py: # Start server... => # Start server...                                                                                                        │
+ │                                                                                                                                                                                          │
+ │    246                                                                                                                                                                                   │
+ │    247   # Start server                                                                                                                                                                  │
+ │    248   if __name__ == "__main__":                                                                                                                                                      │
+ │    249 +     # Reconfigure the logger to show DEBUG messages                                                                                                                             │
+ │    250 +     import sys                                                                                                                                                                  │
+ │    251 +     from xr_robot_teleop_server import logger                                                                                                                                   │
+ │    252 +     logger.remove()                                                                                                                                                             │
+ │    253 +     logger.add(sys.stderr, format="{level: <9} {message}", level="DEBUG")                                                                                                       │
+ │    254 +                                                                                                                                                                                 │
+ │    255       parser = argparse.ArgumentParser(description="XR 360 Camera Streamer")                                                                                                      │
+ │    256       parser.add_argument(                                                                                                                                                        │
+ │    257           "--visualize", action="store_true", help="Enable 3D visualization with rerun."                                                                                          │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Finally, I'll remove the log_level argument from the WebRTCServer instantiation in the example.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/record_full_body_pose.py:     server = WebRTCServer(... =>     server = WebRTCServer(...                                                                                │
+ │                                                                                                                                                                                          │
+ │    319       video_track_factory=create_video_track,                                                                                                                                     │
+ │    320       datachannel_handlers=data_handlers,                                                                                                                                         │
+ │    321       state_factory=state_factory,                                                                                                                                                │
+ │    322 -     log_level="DEBUG",                                                                                                                                                          │
+ │    322   )                                                                                                                                                                               │
+ │    323                                                                                                                                                                                   │
+ │    324   server.run()                                                                                                                                                                    │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Thank you for catching that. The new approach is much cleaner and more robust. I've reverted the changes to WebRTCServer and updated the example to reflect the correct way to manage logging.
+
+╭──────────────────────────────────────────────────────────────╮
+│  > Is this the cleanest option from the user's perspective?  │
+╰──────────────────────────────────────────────────────────────╯
+
+✦ You've asked a great question. From a user's perspective, having to import sys and logger, then remove and re-add a handler just to change the verbosity, is not the cleanest or most intuitive
+  approach. It requires knowledge of the loguru library and is overly verbose for a simple configuration change.
+
+  A much cleaner and more conventional solution, especially for a runnable example script, is to control the log level with a command-line argument. For instance, the user could run:
+  python examples/record_full_body_pose.py --log-level DEBUG
+
+  This is a standard and expected behavior for command-line applications.
+
+  I can implement this by:
+   1. Adding a --log-level argument to the argparse setup in examples/record_full_body_pose.py.
+   2. Using the value of that argument to configure the logger when the script starts.
+
+  This keeps the WebRTCServer component clean (as it should be), while providing a much better user experience for the example application.
+
+  Shall I proceed with this improved approach?
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│  > What is the cleanest option if the intention is for the user to write something like record_full_body_pose.py?  │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+✦ Excellent question. You are right to focus on the developer experience of the library's user. The cleanest option is to provide a simple, high-level function within the library itself to handle
+  the logging configuration.
+
+  My proposed solution is to create a configure_logging function in the xr_robot_teleop_server package.
+
+  This way, a user of your library can simply write:
+
+    1 import argparse
+    2 from xr_robot_teleop_server import configure_logging, WebRTCServer
+    3 
+    4 # Set up argument parsing
+    5 parser = argparse.ArgumentParser()
+    6 parser.add_argument(
+    7     "--log-level", default="INFO", help="Set the logging level (e.g., DEBUG, INFO, WARNING)."
+    8 )
+    9 args = parser.parse_args()
+   10 
+   11 # Configure logging with a single, clean function call
+   12 configure_logging(level=args.log_level)
+   13 
+   14 # Now, create the server
+   15 server = WebRTCServer(...)
+   16 server.run()
+
+  Why this is the cleanest approach:
+
+   1. Simplicity: The user only needs to learn about one function, configure_logging, not the internal details of loguru.
+   2. Encapsulation: It hides the implementation. If you ever decide to switch from loguru to a different logging library, the user's code (configure_logging(...)) doesn't have to change.
+   3. Discoverability: It's a clear, self-documenting part of your library's public API.
+
+  I will implement this by:
+   1. Creating a new file src/xr_robot_teleop_server/logging.py to define the configure_logging function.
+   2. Exposing this function in the top-level __init__.py.
+   3. Updating the default logging setup in __init__.py to use this new function.
+   4. Refactoring examples/record_full_body_pose.py to use this new, much cleaner API.
+
+  This provides the best of all worlds: a clean library API, robust internal implementation, and a great user experience.
+
+  Shall I proceed?
+
+╭──────────╮
+│  > Yes!  │
+╰──────────╯
+
+✦ Okay, let's proceed.
+
+  First, I'll create a new file, src/xr_robot_teleop_server/logging.py, to house the new configure_logging function.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  WriteFile Writing to ...src/xr_robot_teleop_server/logging.py                                                                                                                         │
+ │                                                                                                                                                                                          │
+ │     1 """Logging configuration for the xr_robot_teleop_server library."""                                                                                                                │
+ │     2                                                                                                                                                                                    │
+ │     3 import sys                                                                                                                                                                         │
+ │     4                                                                                                                                                                                    │
+ │     5 from loguru import logger                                                                                                                                                          │
+ │     6                                                                                                                                                                                    │
+ │     7                                                                                                                                                                                    │
+ │     8 def configure_logging(level="INFO", sink=sys.stderr, format="{level: <9} {message}"):                                                                                              │
+ │     9     """                                                                                                                                                                            │
+ │    10     Configures the Loguru logger for the library.                                                                                                                                  │
+ │    11                                                                                                                                                                                    │
+ │    12     This function removes the default Loguru handler and adds a new one with                                                                                                       │
+ │    13     the specified parameters. It provides a simple, one-line way for library                                                                                                       │
+ │    14     users to set up logging.                                                                                                                                                       │
+ │    15                                                                                                                                                                                    │
+ │    16     Args:                                                                                                                                                                          │
+ │    17         level (str, optional): The minimum logging level to output.                                                                                                                │
+ │    18             Defaults to "INFO".                                                                                                                                                    │
+ │    19         sink (file-like object, optional): The destination for logs.                                                                                                               │
+ │    20             Defaults to `sys.stderr`.                                                                                                                                              │
+ │    21         format (str, optional): The Loguru format string for the log messages.                                                                                                     │
+ │    22             Defaults to "{level: <9} {message}".                                                                                                                                   │
+ │    23     """                                                                                                                                                                            │
+ │    24     logger.remove()                                                                                                                                                                │
+ │    25     logger.add(sink, format=format, level=level)                                                                                                                                   │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Next, I'll update the main __init__.py to use this new function for the default configuration and to expose it as part of the public API.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit ...src/xr_robot_teleop_server/__init__.py: """A Python project that strea... => """A Python project that strea...                                                                │
+ │                                                                                                                                                                                          │
+ │     1   """A Python project that streams 360 panoramic videos to XR headsets."""                                                                                                         │
+ │     2                                                                                                                                                                                    │
+ │     3 - import sys                                                                                                                                                                       │
+ │     4 -                                                                                                                                                                                  │
+ │     3   from loguru import logger                                                                                                                                                        │
+ │     4                                                                                                                                                                                    │
+ │     5   from . import __about__                                                                                                                                                          │
+ │     6 + from .logging import configure_logging                                                                                                                                           │
+ │     7   from .schemas.openxr_skeletons import (                                                                                                                                          │
+ │     8       BODY_SKELETON_CONNECTIONS,                                                                                                                                                   │
+ │     9       FULL_BODY_SKELETON_CONNECTIONS,                                                                                                                                              │
+ │    ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════  │
+ │    22                                                                                                                                                                                    │
+ │    23   __all__ = [                                                                                                                                                                      │
+ │    24       "__version__",                                                                                                                                                               │
+ │    25 +     "configure_logging",                                                                                                                                                         │
+ │    26       "VideoSource",                                                                                                                                                               │
+ │    27       "VideoTransform",                                                                                                                                                            │
+ │    28       "logger",                                                                                                                                                                    │
+ │    ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════  │
+ │    40   ]                                                                                                                                                                                │
+ │    41   __version__ = __about__.version                                                                                                                                                  │
+ │    42                                                                                                                                                                                    │
+ │    43 - # Set up logging for the library.                                                                                                                                                │
+ │    44 - #                                                                                                                                                                                │
+ │    45 - # This library uses Loguru for logging. By default, Loguru is configured to output                                                                                               │
+ │    46 - # logs to stderr. Library users can customize this behavior by using the `logger`                                                                                                │
+ │    47 - # object.                                                                                                                                                                        │
+ │    48 - #                                                                                                                                                                                │
+ │    49 - # For example, to redirect logs to a file:                                                                                                                                       │
+ │    50 - #                                                                                                                                                                                │
+ │    51 - # from loguru import logger                                                                                                                                                      │
+ │    52 - # logger.add("my_app.log")                                                                                                                                                       │
+ │    53 - #                                                                                                                                                                                │
+ │    54 - # To disable logging from the library, the default handler can be removed:                                                                                                       │
+ │    55 - #                                                                                                                                                                                │
+ │    56 - # logger.remove()                                                                                                                                                                │
+ │    57 - #                                                                                                                                                                                │
+ │    58 - # For more advanced configuration, please refer to the Loguru documentation.                                                                                                     │
+ │    59 - logger.remove()                                                                                                                                                                  │
+ │    60 - logger.add(sys.stderr, format="{level: <9} {message}", level="INFO")                                                                                                             │
+ │    43 + # Set up default logging for the library.                                                                                                                                        │
+ │    44 + # Users can easily override this by calling `configure_logging()` with their                                                                                                     │
+ │    45 + # preferred settings.                                                                                                                                                            │
+ │    46 + configure_logging()                                                                                                                                                              │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Now, I'll refactor the example file, examples/record_full_body_pose.py, to use the new, cleaner configure_logging function and a command-line argument for setting the log level.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/record_full_body_pose.py: from xr_robot_teleop_server.sc... => from xr_robot_teleop_server im...                                                                        │
+ │                                                                                                                                                                                          │
+ │    11   from aiortc import MediaStreamTrack                                                                                                                                              │
+ │    12   from av import VideoFrame                                                                                                                                                        │
+ │    13                                                                                                                                                                                    │
+ │    14 + from xr_robot_teleop_server import configure_logging                                                                                                                             │
+ │    15   from xr_robot_teleop_server.schemas.openxr_skeletons import (                                                                                                                    │
+ │    16       FULL_BODY_SKELETON_CONNECTIONS,                                                                                                                                              │
+ │    17       FullBodyBoneId,                                                                                                                                                              │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/record_full_body_pose.py: # Start server... => # Start server...                                                                                                        │
+ │                                                                                                                                                                                          │
+ │    Error: Failed to edit, could not find the string to replace.                                                                                                                          │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ My apologies. It seems I have made a mistake in the previous step. I will read the file examples/record_full_body_pose.py again to get the correct content before applying the changes.
+ ╭────────────────────────────────────────────────╮
+ │ ✔  ReadFile examples/record_full_body_pose.py  │
+ ╰────────────────────────────────────────────────╯
+✦ I see, I was trying to remove code that I had already removed. My apologies. I will now apply the correct changes to examples/record_full_body_pose.py.
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ✔  Edit examples/record_full_body_pose.py: # Start server... => # Start server...                                                                                                        │
+ │                                                                                                                                                                                          │
+ │    247                                                                                                                                                                                   │
+ │    248   # Start server                                                                                                                                                                  │
+ │    249   if __name__ == "__main__":                                                                                                                                                      │
+ │    250 -     # Reconfigure the logger to show DEBUG messages                                                                                                                             │
+ │    251 -     import sys                                                                                                                                                                  │
+ │    252 -     from xr_robot_teleop_server import logger                                                                                                                                   │
+ │    253 -     logger.remove()  # Remove default handler                                                                                                                                   │
+ │    254 -     logger.add(sys.stderr, format="{level: <9} {message}", level="DEBUG")                                                                                                       │
+ │    255 -                                                                                                                                                                                 │
+ │    250       parser = argparse.ArgumentParser(description="XR 360 Camera Streamer")                                                                                                      │
+ │    251       parser.add_argument(                                                                                                                                                        │
+ │    252 +         "--log-level",                                                                                                                                                          │
+ │    253 +         type=str,                                                                                                                                                               │
+ │    254 +         default="INFO",                                                                                                                                                         │
+ │    255 +         help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",                                                                                                           │
+ │    256 +     )                                                                                                                                                                           │
+ │    257 +     parser.add_argument(                                                                                                                                                        │
+ │    258           "--visualize", action="store_true", help="Enable 3D visualization with rerun."                                                                                          │
+ │    259       )                                                                                                                                                                           │
+ │    260       args = parser.parse_args()                                                                                                                                                  │
+ │    261                                                                                                                                                                                   │
+ │    262 +     # Configure logging                                                                                                                                                         │
+ │    263 +     configure_logging(level=args.log_level)                                                                                                                                     │
+ │    264 +                                                                                                                                                                                 │
+ │    265       rr = None                                                                                                                                                                   │
+ │    266       state_factory = AppState                                                                                                                                                    │
+ │    267       if VISUALIZE or args.visualize:                                                                                                                                             │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ The refactoring is now complete. I have created a configure_logging function, exposed it in the library's API, and updated the example to use it with a command-line argument. This provides a
+  much cleaner and more user-friendly way to control logging.
+```
