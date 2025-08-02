@@ -1,14 +1,9 @@
 import argparse  # noqa: I001
-import json
-import os
 import time
 from functools import partial
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-from aiortc import MediaStreamTrack
-from av import VideoFrame
 
 from xr_robot_teleop_server import configure_logging
 from xr_robot_teleop_server.schemas.body_pose import (
@@ -20,19 +15,11 @@ from xr_robot_teleop_server.schemas.openxr_skeletons import (
     SkeletonType,
     get_bone_label,
 )
-from xr_robot_teleop_server.sources import FFmpegFileSource
 from xr_robot_teleop_server.streaming import WebRTCServer
-from xr_robot_teleop_server.transforms import EquilibEqui2Pers
 
 # Params
-# video source library
-VIDEO_SOURCE = FFmpegFileSource
-# VIDEO_SOURCE = OpenCVFileSource
-
 # body pose visualization
 VISUALIZE = True
-# VISUALIZE = False
-
 VIZ_POINT_RADIUS = 0.01
 
 # Coordinate system conversion for Unity data
@@ -57,67 +44,13 @@ def convert_unity_to_right_handed_z_up(
     return new_position, new_rotation
 
 
-# Define a state object for orientation
+# Define a state object to pass visualizer into aiortc
 class AppState:
     def __init__(self, visualizer: Any | None = None):
-        self.pitch = 0.0
-        self.yaw = 0.0
-        self.roll = 0.0
-        self.fov_x = 90.0  # Horizontal FOV in degrees
         self.visualizer = visualizer
 
     def __repr__(self):
-        return (
-            f"<AppState pitch={self.pitch}, yaw={self.yaw}, roll={self.roll}, fov_x={self.fov_x}>"
-        )
-
-    def get_rot(self) -> dict[str, float]:
-        return {"pitch": self.pitch, "yaw": self.yaw, "roll": self.roll}
-
-
-# Define a custom video track that applies reprojection
-class ReprojectionTrack(MediaStreamTrack):
-    kind = "video"
-
-    def __init__(self, state: AppState, source: VIDEO_SOURCE, transform: EquilibEqui2Pers):
-        super().__init__()
-        self.state = state
-        self.source = source
-        self.transform = transform
-        self._timestamp = 0
-
-    async def recv(self):
-        equi_frame_rgb = next(self.source)  # ALT
-
-        # Get current orientation from the shared state
-        rot = self.state.get_rot()
-
-        # # Apply the equirectangular-to-perspective transform
-        perspective_frame = self.transform.transform(frame=equi_frame_rgb, rot=rot)
-
-        # Create a VideoFrame for aiortc
-        frame = VideoFrame.from_ndarray(perspective_frame, format="rgb24")
-
-        # Set timestamp
-        time_base = 90000
-        frame.pts = self._timestamp
-        frame.time_base = time_base
-        self._timestamp += int(time_base / self.source.fps)
-
-        return frame
-
-
-# Data channel handler to update orientation state
-def on_camera_message(message: str, state: AppState):
-    try:
-        data = json.loads(message)
-        # print(f"Received camera data: {data}")
-        state.pitch = np.deg2rad(float(data.get("pitch", np.rad2deg(state.pitch))))
-        state.yaw = np.deg2rad(float(data.get("yaw", np.rad2deg(state.yaw))))
-        state.roll = np.deg2rad(float(data.get("roll", np.rad2deg(state.roll))))
-        state.fov_x = float(data.get("fov_x", state.fov_x))
-    except (json.JSONDecodeError, TypeError, ValueError) as e:
-        print(f"Could not process camera data: {e}")
+        return f"<AppState visualizer={self.visualizer}>"
 
 
 def on_body_pose_message(message: bytes, state: AppState):
@@ -159,29 +92,6 @@ def on_body_pose_message(message: bytes, state: AppState):
 
     except Exception as e:
         print(f"Could not process body pose data: {e}")
-
-
-# Factory for creating the video track
-def create_video_track(state: AppState):
-    video_path = os.path.join(
-        Path(__file__).parents[2],
-        "xr-robot-teleop-server-assets",
-        "videos",
-        "test_video.mp4",
-    )
-
-    if not os.path.exists(video_path):
-        raise FileNotFoundError(
-            f"Video asset not found at {video_path}. "
-            "Please download the assets from the repository "
-            "and place them in `xr-robot-teleop-server-assets` at the project root."
-        )
-
-    # Initialize the video source and transform
-    video_source = VIDEO_SOURCE(video_path)
-    video_transform = EquilibEqui2Pers(output_width=1280, output_height=720, fov_x=state.fov_x)
-
-    return ReprojectionTrack(state, video_source, video_transform)
 
 
 # Start server
@@ -254,12 +164,10 @@ if __name__ == "__main__":
         state_factory = partial(AppState, visualizer=rr)
 
     data_handlers = {
-        "camera": on_camera_message,
         "body_pose": on_body_pose_message,
     }
 
     server = WebRTCServer(
-        video_track_factory=create_video_track,
         datachannel_handlers=data_handlers,
         state_factory=state_factory,
     )
