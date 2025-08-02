@@ -4,6 +4,10 @@ from loguru import logger
 
 from . import __about__
 from .logging import configure_logging
+from .schemas.body_pose import (
+    Bone,
+    deserialize_pose_data,
+)
 from .schemas.openxr_skeletons import (
     BODY_SKELETON_CONNECTIONS,
     FULL_BODY_SKELETON_CONNECTIONS,
@@ -22,21 +26,23 @@ from .transforms.base import VideoTransform
 
 __all__ = [
     "__version__",
-    "configure_logging",
-    "VideoSource",
-    "VideoTransform",
     "logger",
-    "HandBoneId",
-    "OVRHandBoneId",
+    "configure_logging",
+    "Bone",
+    "deserialize_pose_data",
+    "BODY_SKELETON_CONNECTIONS",
+    "FULL_BODY_SKELETON_CONNECTIONS",
+    "HAND_SKELETON_CONNECTIONS",
+    "OVR_HAND_SKELETON_CONNECTIONS",
     "BodyBoneId",
     "FullBodyBoneId",
+    "HandBoneId",
+    "OVRHandBoneId",
     "SkeletonType",
     "get_bone_label",
     "get_skeleton_connections",
-    "BODY_SKELETON_CONNECTIONS",
-    "HAND_SKELETON_CONNECTIONS",
-    "OVR_HAND_SKELETON_CONNECTIONS",
-    "FULL_BODY_SKELETON_CONNECTIONS",
+    "VideoSource",
+    "VideoTransform",
 ]
 __version__ = __about__.version
 
