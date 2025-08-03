@@ -26,24 +26,6 @@ VIZ_POINT_RADIUS = 0.01
 CONVERT_UNITY_COORDS = True
 
 
-def convert_unity_to_right_handed_z_up(
-    position: tuple[float, float, float],
-    rotation: tuple[float, float, float, float],
-) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
-    """
-    Converts position and rotation from Unity's left-handed, Y-up coordinate system
-    to a right-handed, Z-up coordinate system (+X Forward, +Y Left, +Z Up).
-    """
-    # Position conversion: Unity (x,y,z) -> (z, -x, y)
-    new_position = (position[2], -position[0], position[1])
-
-    # Rotation quaternion conversion: Unity (qx,qy,qz,qw) -> (-qz, qx, -qy, qw)
-    qx, qy, qz, qw = rotation
-    new_rotation = (-qz, qx, -qy, qw)
-
-    return new_position, new_rotation
-
-
 # Define a state object to pass visualizer into aiortc
 class AppState:
     def __init__(self, visualizer: Any | None = None):
@@ -56,14 +38,8 @@ class AppState:
 def on_body_pose_message(message: bytes, state: AppState):
     try:
         if isinstance(message, bytes):
-            pose_data = deserialize_pose_data(message)
+            pose_data = deserialize_pose_data(message, z_up=CONVERT_UNITY_COORDS)
             # print(f"Received {len(pose_data)} bones")
-
-            if CONVERT_UNITY_COORDS:
-                for bone in pose_data:
-                    bone.position, bone.rotation = convert_unity_to_right_handed_z_up(
-                        bone.position, bone.rotation
-                    )
 
             # Log to rerun
             if state.visualizer:

@@ -1,5 +1,7 @@
 import struct
 
+from ..utils.coordinate import convert_unity_to_right_handed_z_up
+
 
 class Bone:
     """
@@ -20,7 +22,7 @@ class Bone:
         return f"Bone(pos={self.position}, rot={self.rotation})"
 
 
-def deserialize_pose_data(data: bytes) -> list[Bone]:
+def deserialize_pose_data(data: bytes, z_up: bool = True) -> list[Bone]:
     """
     Deserializes the binary pose data stream from the Unity client.
 
@@ -58,6 +60,10 @@ def deserialize_pose_data(data: bytes) -> list[Bone]:
             bone_id = bone_data[0]
             position = (bone_data[1], bone_data[2], bone_data[3])
             rotation = (bone_data[4], bone_data[5], bone_data[6], bone_data[7])
+
+            # 4. Convert to z-up (FLU) from if user wants
+            if z_up:
+                position, rotation = convert_unity_to_right_handed_z_up(position, rotation)
 
             bones.append(Bone(bone_id, position, rotation))
 
