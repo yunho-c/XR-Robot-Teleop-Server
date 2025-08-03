@@ -23,6 +23,7 @@ from .schemas.openxr_skeletons import (
 )
 from .sources.base import VideoSource
 from .transforms.base import VideoTransform
+from .utils.coordinate import convert_unity_to_right_handed_z_up
 
 __all__ = [
     "__version__",
@@ -43,6 +44,7 @@ __all__ = [
     "get_skeleton_connections",
     "VideoSource",
     "VideoTransform",
+    "convert_unity_to_right_handed_z_up",
 ]
 __version__ = __about__.version
 
