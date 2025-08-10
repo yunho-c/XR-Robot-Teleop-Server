@@ -15,6 +15,7 @@ and visualize the result in MuJoCo.
 
 # TODO: update instructions in docstring
 # TODO: make visualization pretty (& intuitive)
+# TODO: think whether data should move to a separate file or into core library
 
 import argparse
 import time
@@ -44,14 +45,15 @@ from xr_robot_teleop_server.streaming import WebRTCServer
 from xr_robot_teleop_server.utils.frame import get_hand_centric_coordinates, rotate_bones
 
 # Params
+# DEBUG = True
 DEBUG = False
 ENABLE_DYNAMICS = False
 
 # NOTE: see RobotName enum for possible values
-DEFAULT_ROBOT: str = "allegro"
-# DEFAULT_ROBOT: str = "shadow"
+# DEFAULT_ROBOT: str = "allegro"
+DEFAULT_ROBOT: str = "shadow"
 # DEFAULT_ROBOT: str = "leap"
-# DEFAULT_ROBOT: str = "ability"
+# DEFAULT_ROBOT: str = "ability"  # TODO: confirm joint name mapping using LLMs
 # DEFAULT_ROBOT: str = "panda"
 # DEFAULT_ROBOT: str = "svh"  # WARNING: unsupported
 # DEFAULT_ROBOT: str = "inspire"  # WARNING: unsupported
@@ -134,10 +136,68 @@ MANO_HAND_CONNECTIVITY = [
 ]
 
 ROBOTS_WITH_DIFFERENT_JOINT_NAMES = [
+    "allegro",
+    "shadow",
     "ability",
 ]
 
+ROBODESC_VARIANT = {
+    "allegro": "<SIDE>_hand",
+    "shadow": "<SIDE>_hand",
+    "ability": "<SIDE>_hand_large",
+}
+
 DEX_RETARGETING_TO_MUJOCO_JOINT_NAMES: dict[str, dict[str, str]] = {
+    "allegro": {
+        "joint_0.0": "ffj0",
+        "joint_1.0": "ffj1",
+        "joint_2.0": "ffj2",
+        "joint_3.0": "ffj3",
+        "joint_4.0": "mfj0",
+        "joint_5.0": "mfj1",
+        "joint_6.0": "mfj2",
+        "joint_7.0": "mfj3",
+        "joint_8.0": "rfj0",
+        "joint_9.0": "rfj1",
+        "joint_10.0": "rfj2",
+        "joint_11.0": "rfj3",
+        "joint_12.0": "thj0",
+        "joint_13.0": "thj1",
+        "joint_14.0": "thj2",
+        "joint_15.0": "thj3",
+    },
+    "shadow": {
+        # Wrist
+        "WRJ1": "rh_WRJ1",
+        "WRJ2": "rh_WRJ2",
+        # First Finger (FF)
+        "FFJ1": "rh_FFJ1",
+        "FFJ2": "rh_FFJ2",
+        "FFJ3": "rh_FFJ3",
+        "FFJ4": "rh_FFJ4",
+        # Middle Finger (MF)
+        "MFJ1": "rh_MFJ1",
+        "MFJ2": "rh_MFJ2",
+        "MFJ3": "rh_MFJ3",
+        "MFJ4": "rh_MFJ4",
+        # Ring Finger (RF)
+        "RFJ1": "rh_RFJ1",
+        "RFJ2": "rh_RFJ2",
+        "RFJ3": "rh_RFJ3",
+        "RFJ4": "rh_RFJ4",
+        # Little Finger (LF)
+        "LFJ1": "rh_LFJ1",
+        "LFJ2": "rh_LFJ2",
+        "LFJ3": "rh_LFJ3",
+        "LFJ4": "rh_LFJ4",
+        "LFJ5": "rh_LFJ5",
+        # Thumb (TH)
+        "THJ1": "rh_THJ1",
+        "THJ2": "rh_THJ2",
+        "THJ3": "rh_THJ3",
+        "THJ4": "rh_THJ4",
+        "THJ5": "rh_THJ5",
+    },
     "ability": {
         "index_q1": "index_mcp",
         "index_q2": "index_pip",
@@ -201,7 +261,8 @@ class AppState:
     def setup_mujoco(self, robot_name):
         """Initializes the MuJoCo model, data, and viewer."""
         try:
-            model = load_robot_description(f"{robot_name}_hand_mj_description")
+            variant = ROBODESC_VARIANT[robot_name].replace("<SIDE>", self.args.hand_type)
+            model = load_robot_description(f"{robot_name}_hand_mj_description", variant=variant)
         except Exception as e:
             logger.error(f"Failed to load model for {robot_name} from `robot_descriptions`: {e}")
             return
@@ -253,7 +314,7 @@ def on_body_pose_message(message: bytes, state: AppState):
         if isinstance(message, bytes) and state.viewer.is_running():
             if state.visualizer:
                 rr = state.visualizer
-                rr.set_time_sequence("body_pose_timestamp", int(time.time() * 1000))
+                rr.set_time("body_pose_timestamp", sequence=int(time.time()))
 
             pose_data = deserialize_pose_data(message, z_up=True)
             if not pose_data:
