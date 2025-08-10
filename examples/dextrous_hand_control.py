@@ -29,11 +29,13 @@ from dex_retargeting.constants import (
 )
 from dex_retargeting.retargeting_config import RetargetingConfig
 from dex_retargeting.seq_retarget import SeqRetargeting
+from robot_descriptions.loaders.mujoco import load_robot_description
 
 from xr_robot_teleop_server import configure_logging
 from xr_robot_teleop_server.schemas.body_pose import deserialize_pose_data
 from xr_robot_teleop_server.schemas.openxr_skeletons import FullBodyBoneId
 from xr_robot_teleop_server.streaming import WebRTCServer
+from xr_robot_teleop_server.utils.frame import get_hand_centric_coordinates
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -90,6 +92,21 @@ MANO_TO_OPENXR_LEFT_HAND: dict[int, FullBodyBoneId] = {
     20: FullBodyBoneId.FullBody_LeftHandLittleTip,
 }
 
+DEX_RETARGETING_TO_MUJOCO_JOINT_NAMES: dict[str, dict[str, str]] = {
+    "ability": {
+        "index_q1": "index_mcp",
+        "index_q2": "index_pip",
+        "middle_q1": "middle_mcp",
+        "middle_q2": "middle_pip",
+        "pinky_q1": "pinky_mcp",
+        "pinky_q2": "pinky_pip",
+        "ring_q1": "ring_mcp",
+        "ring_q2": "ring_pip",
+        "thumb_q1": "thumb_cmc",
+        "thumb_q2": "thumb_mcp",
+    },
+}
+
 
 class AppState:
     """State object to hold retargeting and MuJoCo objects."""
@@ -129,31 +146,34 @@ class AppState:
         logger.info(f"Retargeting for {args.robot_name} initialized.")
 
         # Setup MuJoCo
-        self._setup_mujoco()
+        self._setup_mujoco(args.robot_name)
         if self.viewer is None:  # Setup failed
             return
 
         self.is_initialized = True
 
-    def _setup_mujoco(self):
+    def _setup_mujoco(self, robot_name):
         """Initializes the MuJoCo model, data, and viewer."""
-        urdf_path = self.retargeting_config.urdf_path
         try:
-            model = mujoco.MjModel.from_xml_path(urdf_path)
+            model = load_robot_description(f"{robot_name}_hand_mj_description")
         except Exception as e:
-            logger.error(f"Failed to load URDF for MuJoCo: {urdf_path}\n{e}")
-            logger.error(
-                "Please ensure that the URDF is compatible with MuJoCo's parser. "
-                "You may need to convert mesh files to a format MuJoCo supports (e.g., STL, OBJ)."
-            )
+            logger.error(f"Failed to load model for {robot_name} from `robot_descriptions`: {e}")
             return
 
         data = mujoco.MjData(model)
 
+        # # DEBUG: Iterate through all joints in the model
+        # for i in range(model.njnt):
+        #     joint_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, i)
+        #     qpos_address = model.jnt_qposadr[i]
+        #     print(f"Joint '{joint_name}' (ID: {i}) starts at qpos index: {qpos_address}")
+
+        D2M = DEX_RETARGETING_TO_MUJOCO_JOINT_NAMES[robot_name]  # alias
+
         # Create joint mapping
         retargeting_joint_names = self.retargeting.joint_names
         mujoco_joint_ids = [
-            mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+            mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, D2M[name])
             for name in retargeting_joint_names
         ]
 
@@ -174,7 +194,7 @@ class AppState:
 def on_body_pose_message(message: bytes, state: AppState):
     """Callback for handling body pose messages from the WebRTC client."""
     if not state.is_initialized:
-        # logger.warning("App state not initialized, skipping message.")
+        logger.warning("App state not initialized, skipping message.")
         return
 
     try:
@@ -183,7 +203,9 @@ def on_body_pose_message(message: bytes, state: AppState):
             if not pose_data:
                 return
 
-            bone_map = {b.id: b for b in pose_data}
+            hand_data = get_hand_centric_coordinates(pose_data, state.args.hand_type)
+
+            bone_map = {b.id: b for b in hand_data}
             mapping = (
                 MANO_TO_OPENXR_RIGHT_HAND
                 if state.args.hand_type == "right"
@@ -213,13 +235,15 @@ def on_body_pose_message(message: bytes, state: AppState):
 
                 # Retarget
                 qpos = state.retargeting.retarget(ref_value=target_vectors)
+                # print(f"{qpos=}")  # DEBUG
 
                 # Apply to MuJoCo model
                 for retarget_idx, mujoco_idx in state.retargeting_to_mujoco_map:
                     state.data.qpos[mujoco_idx] = qpos[retarget_idx]
 
             # Step the simulation and render
-            mujoco.mj_step(state.model, state.data)
+            # mujoco.mj_step(state.model, state.data)  # original
+            mujoco.mj_forward(state.model, state.data)  # DEBUG: update kinematics only
             state.viewer.sync()
 
     except Exception as e:
@@ -228,9 +252,8 @@ def on_body_pose_message(message: bytes, state: AppState):
             state.viewer.close()
 
 
-
 def main():
-    parser = argparse.ArgumentParser(description="Dextrous Hand Control Example with MuJoCo")
+    parser = argparse.ArgumentParser(description="Dextrous Hand Control Example using MuJoCo")
     parser.add_argument(
         "--robot-name",
         type=str,
