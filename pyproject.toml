@@ -35,6 +35,7 @@ dependencies = [
     "pyequilib",
     "python-multipart",
     "Pillow",
+    "scipy",
     "torch",
     "uvicorn",
 ]
