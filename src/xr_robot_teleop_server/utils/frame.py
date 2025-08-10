@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.spatial.transform import Rotation
+from scipy.spatial.transform import Rotation as R
 
 from ..schemas.body_pose import Bone
 from ..schemas.openxr_skeletons import FullBodyBoneId
@@ -68,7 +68,7 @@ def get_body_centric_coordinates(bones: list[Bone]) -> list[Bone]:
         return []
 
     body_centric_bones = []
-    r_world_body = Rotation.from_matrix(R_world_body)
+    r_world_body = R.from_matrix(R_world_body)
 
     for bone in bones:
         # Transform position
@@ -77,7 +77,7 @@ def get_body_centric_coordinates(bones: list[Bone]) -> list[Bone]:
         )
 
         # Transform rotation
-        r_world_bone = Rotation.from_quat(bone_rotations[bone.id])
+        r_world_bone = R.from_quat(bone_rotations[bone.id])
         r_body_bone = r_world_body.inv() * r_world_bone
         body_centric_rot = r_body_bone.as_quat()
 
@@ -171,7 +171,7 @@ def get_hand_centric_coordinates(bones: list[Bone], side: str) -> list[Bone]:
         return []
 
     hand_centric_bones = []
-    r_world_hand_rot = Rotation.from_matrix(r_world_hand)
+    r_world_hand_rot = R.from_matrix(r_world_hand)
 
     for bone in bones:
         bone_name = FullBodyBoneId(bone.id).name
@@ -182,7 +182,7 @@ def get_hand_centric_coordinates(bones: list[Bone], side: str) -> list[Bone]:
             )
 
             # Transform rotation
-            r_world_bone = Rotation.from_quat(bone_rotations[bone.id])
+            r_world_bone = R.from_quat(bone_rotations[bone.id])
             r_hand_bone = r_world_hand_rot.inv() * r_world_bone
             hand_centric_rot = r_hand_bone.as_quat()
 
@@ -195,3 +195,34 @@ def get_hand_centric_coordinates(bones: list[Bone], side: str) -> list[Bone]:
             )
 
     return hand_centric_bones
+
+
+def rotate_bones(bones: list[Bone], rotation: R) -> list[Bone]:
+    """
+    Applies a rotation to a list of bones.
+
+    Args:
+        bones: A list of Bone objects.
+        rotation: A scipy.spatial.transform.Rotation object.
+
+    Returns:
+        A new list of Bone objects with the rotation applied.
+    """
+    rotated_bones = []
+    for bone in bones:
+        # Apply rotation to position
+        new_position = rotation.apply(bone.position)
+
+        # Apply rotation to orientation
+        bone_rotation = R.from_quat(bone.rotation)
+        new_orientation = rotation * bone_rotation
+        new_orientation_quat = new_orientation.as_quat()
+
+        rotated_bones.append(
+            Bone(
+                id=bone.id,
+                position=tuple(new_position),
+                rotation=tuple(new_orientation_quat),
+            )
+        )
+    return rotated_bones
