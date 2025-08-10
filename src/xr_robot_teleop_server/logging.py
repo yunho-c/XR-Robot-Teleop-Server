@@ -20,6 +20,10 @@ def configure_logging(level="INFO", sink=sys.stderr, format="{level: <9} {messag
             Defaults to `sys.stderr`.
         format (str, optional): The Loguru format string for the log messages.
             Defaults to "{level: <9} {message}".
+
+    Returns:
+        The configured logger instance.
     """
     logger.remove()
     logger.add(sink, format=format, level=level)
+    return logger

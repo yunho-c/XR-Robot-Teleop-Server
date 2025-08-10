@@ -3,6 +3,7 @@ from scipy.spatial.transform import Rotation
 
 from ..schemas.body_pose import Bone
 from ..schemas.openxr_skeletons import FullBodyBoneId
+from .coordinate import transform_to_frame
 
 
 def get_body_frame(
@@ -176,9 +177,9 @@ def get_hand_centric_coordinates(bones: list[Bone], side: str) -> list[Bone]:
         bone_name = FullBodyBoneId(bone.id).name
         if f"{side_pascal}Hand" in bone_name:
             # Transform position
-            world_pos = bone_positions[bone.id]
-            translated = world_pos - hand_origin
-            hand_centric_pos = r_world_hand.T @ translated
+            hand_centric_pos = transform_to_frame(
+                bone_positions[bone.id], hand_origin, r_world_hand
+            )
 
             # Transform rotation
             r_world_bone = Rotation.from_quat(bone_rotations[bone.id])
@@ -194,10 +195,3 @@ def get_hand_centric_coordinates(bones: list[Bone], side: str) -> list[Bone]:
             )
 
     return hand_centric_bones
-
-
-def transform_to_frame(world_pos, origin, rotation):
-    """Transform a position to another frame."""
-    translated = world_pos - origin
-    pos = rotation.T @ translated
-    return pos
