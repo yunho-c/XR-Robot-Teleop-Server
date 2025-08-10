@@ -15,7 +15,6 @@ from xr_robot_teleop_server.schemas.openxr_skeletons import (
     FULL_BODY_SKELETON_CONNECTIONS,
     FullBodyBoneId,
     SkeletonType,
-    get_bone_label,
 )
 from xr_robot_teleop_server.streaming import WebRTCServer
 from xr_robot_teleop_server.utils.frame import (
@@ -149,6 +148,7 @@ if __name__ == "__main__":
 
     # Create a ClassDescription for the full body skeleton.
     from matplotlib import colormaps as cm
+
     colormap = cm.get_cmap("jet")
     keypoint_annotations = [
         rr.AnnotationInfo(

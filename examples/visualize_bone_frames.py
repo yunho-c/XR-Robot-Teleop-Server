@@ -1,5 +1,4 @@
-import argparse  # noqa: I001
-import time
+import argparse
 from functools import partial
 from typing import Any, Literal
 

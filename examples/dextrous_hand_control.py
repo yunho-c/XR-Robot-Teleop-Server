@@ -15,7 +15,6 @@ and visualize the result in MuJoCo.
 
 import argparse
 import logging
-import time
 from functools import partial
 from pathlib import Path
 
@@ -120,7 +119,8 @@ class AppState:
         if not urdf_dir.exists():
             logger.error(
                 f"URDF directory not found: {urdf_dir}. "
-                "Please make sure the git submodule is initialized: `git submodule update --init --recursive`"
+                "Please make sure the git submodule is initialized: "
+                "`git submodule update --init --recursive`"
             )
             return
         RetargetingConfig.set_default_urdf_dir(urdf_dir)

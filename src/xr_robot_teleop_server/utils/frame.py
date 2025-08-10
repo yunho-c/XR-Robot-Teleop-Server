@@ -91,9 +91,7 @@ def get_body_centric_coordinates(bones: list[Bone]) -> list[Bone]:
     return body_centric_bones
 
 
-def get_hand_frame(
-    side: str, bone_positions: dict
-) -> tuple[np.ndarray | None, np.ndarray | None]:
+def get_hand_frame(side: str, bone_positions: dict) -> tuple[np.ndarray | None, np.ndarray | None]:
     """
     Calculates the hand-centric coordinate frame for a given side.
 
@@ -108,9 +106,7 @@ def get_hand_frame(
         Returns (None, None) if essential bones are missing.
     """
     side_pascal = side.capitalize()
-    wrist_pos = bone_positions.get(
-        getattr(FullBodyBoneId, f"FullBody_{side_pascal}HandWrist")
-    )
+    wrist_pos = bone_positions.get(getattr(FullBodyBoneId, f"FullBody_{side_pascal}HandWrist"))
     middle_metacarpal_pos = bone_positions.get(
         getattr(FullBodyBoneId, f"FullBody_{side_pascal}HandMiddleMetacarpal")
     )
@@ -198,6 +194,7 @@ def get_hand_centric_coordinates(bones: list[Bone], side: str) -> list[Bone]:
             )
 
     return hand_centric_bones
+
 
 def transform_to_frame(world_pos, origin, rotation):
     """Transform a position to another frame."""

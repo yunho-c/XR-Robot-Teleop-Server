@@ -1,6 +1,7 @@
+import time
+
 import mujoco
 from robot_descriptions.loaders.mujoco import load_robot_description
-import time
 
 # Load the Psyonic Ability hand description
 # hand_description = "ability_hand_description"
