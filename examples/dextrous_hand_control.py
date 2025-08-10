@@ -13,14 +13,19 @@ The script will extract the hand pose, retarget it to a specified robot hand,
 and visualize the result in MuJoCo.
 """
 
+# TODO: update instructions in docstring
+# TODO: make visualization pretty (& intuitive)
+
 import argparse
-import logging
+import time
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 import mujoco
 import mujoco.viewer
 import numpy as np
+import rerun as rr
 from dex_retargeting.constants import (
     HandType,
     RetargetingType,
@@ -30,19 +35,33 @@ from dex_retargeting.constants import (
 from dex_retargeting.retargeting_config import RetargetingConfig
 from dex_retargeting.seq_retarget import SeqRetargeting
 from robot_descriptions.loaders.mujoco import load_robot_description
+from scipy.spatial.transform import Rotation as R
 
-from xr_robot_teleop_server import configure_logging
+from xr_robot_teleop_server import configure_logging, logger
 from xr_robot_teleop_server.schemas.body_pose import deserialize_pose_data
 from xr_robot_teleop_server.schemas.openxr_skeletons import FullBodyBoneId
 from xr_robot_teleop_server.streaming import WebRTCServer
-from xr_robot_teleop_server.utils.frame import get_hand_centric_coordinates
+from xr_robot_teleop_server.utils.frame import get_hand_centric_coordinates, rotate_bones
 
-# Logger
-logger = logging.getLogger(__name__)
+# Params
+DEBUG = False
+ENABLE_DYNAMICS = False
 
-# This mapping converts the 21-point MANO hand keypoint structure to the
-# OpenXR FullBodyBoneId enum for the right hand. We are skipping the
-# "intermediate" phalanx bones from OpenXR to match MANO's structure.
+# NOTE: see RobotName enum for possible values
+DEFAULT_ROBOT: str = "allegro"
+# DEFAULT_ROBOT: str = "shadow"
+# DEFAULT_ROBOT: str = "leap"
+# DEFAULT_ROBOT: str = "ability"
+# DEFAULT_ROBOT: str = "panda"
+# DEFAULT_ROBOT: str = "svh"  # WARNING: unsupported
+# DEFAULT_ROBOT: str = "inspire"  # WARNING: unsupported
+
+
+# These mappings convert the 21-point MANO hand keypoint structure into
+# OpenXR FullBodyBoneId enum for the left/right hands.
+
+# NOTE: We are skipping the "intermediate" phalanx bones from OpenXR
+#       to match MANO's structure.
 MANO_TO_OPENXR_RIGHT_HAND: dict[int, FullBodyBoneId] = {
     0: FullBodyBoneId.FullBody_RightHandWrist,
     1: FullBodyBoneId.FullBody_RightHandThumbMetacarpal,
@@ -51,23 +70,22 @@ MANO_TO_OPENXR_RIGHT_HAND: dict[int, FullBodyBoneId] = {
     4: FullBodyBoneId.FullBody_RightHandThumbTip,
     5: FullBodyBoneId.FullBody_RightHandIndexMetacarpal,
     6: FullBodyBoneId.FullBody_RightHandIndexProximal,
-    7: FullBodyBoneId.FullBody_RightHandIndexDistal,  # Skip Intermediate
+    7: FullBodyBoneId.FullBody_RightHandIndexDistal,
     8: FullBodyBoneId.FullBody_RightHandIndexTip,
     9: FullBodyBoneId.FullBody_RightHandMiddleMetacarpal,
     10: FullBodyBoneId.FullBody_RightHandMiddleProximal,
-    11: FullBodyBoneId.FullBody_RightHandMiddleDistal,  # Skip Intermediate
+    11: FullBodyBoneId.FullBody_RightHandMiddleDistal,
     12: FullBodyBoneId.FullBody_RightHandMiddleTip,
     13: FullBodyBoneId.FullBody_RightHandRingMetacarpal,
     14: FullBodyBoneId.FullBody_RightHandRingProximal,
-    15: FullBodyBoneId.FullBody_RightHandRingDistal,  # Skip Intermediate
+    15: FullBodyBoneId.FullBody_RightHandRingDistal,
     16: FullBodyBoneId.FullBody_RightHandRingTip,
     17: FullBodyBoneId.FullBody_RightHandLittleMetacarpal,
     18: FullBodyBoneId.FullBody_RightHandLittleProximal,
-    19: FullBodyBoneId.FullBody_RightHandLittleDistal,  # Skip Intermediate
+    19: FullBodyBoneId.FullBody_RightHandLittleDistal,
     20: FullBodyBoneId.FullBody_RightHandLittleTip,
 }
 
-# Mapping for the left hand
 MANO_TO_OPENXR_LEFT_HAND: dict[int, FullBodyBoneId] = {
     0: FullBodyBoneId.FullBody_LeftHandWrist,
     1: FullBodyBoneId.FullBody_LeftHandThumbMetacarpal,
@@ -92,6 +110,33 @@ MANO_TO_OPENXR_LEFT_HAND: dict[int, FullBodyBoneId] = {
     20: FullBodyBoneId.FullBody_LeftHandLittleTip,
 }
 
+MANO_HAND_CONNECTIVITY = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+    [0, 5],
+    [5, 6],
+    [6, 7],
+    [7, 8],
+    [0, 9],
+    [9, 10],
+    [10, 11],
+    [11, 12],
+    [0, 13],
+    [13, 14],
+    [14, 15],
+    [15, 16],
+    [0, 17],
+    [17, 18],
+    [18, 19],
+    [19, 20],
+]
+
+ROBOTS_WITH_DIFFERENT_JOINT_NAMES = [
+    "ability",
+]
+
 DEX_RETARGETING_TO_MUJOCO_JOINT_NAMES: dict[str, dict[str, str]] = {
     "ability": {
         "index_q1": "index_mcp",
@@ -111,8 +156,9 @@ DEX_RETARGETING_TO_MUJOCO_JOINT_NAMES: dict[str, dict[str, str]] = {
 class AppState:
     """State object to hold retargeting and MuJoCo objects."""
 
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, args: argparse.Namespace, visualizer: Any | None = None):
         self.args = args
+        self.visualizer = visualizer
         self.retargeting: SeqRetargeting | None = None
         self.retargeting_config: RetargetingConfig | None = None
         self.model: mujoco.MjModel | None = None
@@ -135,24 +181,24 @@ class AppState:
         urdf_dir = Path("References/dex-retargeting/assets/robots/hands")
         if not urdf_dir.exists():
             logger.error(
-                f"URDF directory not found: {urdf_dir}. "
-                "Please make sure the git submodule is initialized: "
+                f"URDF directory not found: {urdf_dir}."
+                "Please make sure the git submodules are initialized: "
                 "`git submodule update --init --recursive`"
             )
             return
         RetargetingConfig.set_default_urdf_dir(urdf_dir)
-        self.retargeting_config = RetargetingConfig.load_from_file(config_path)
-        self.retargeting = self.retargeting_config.build()
+        self.retargeting = RetargetingConfig.load_from_file(config_path).build()
         logger.info(f"Retargeting for {args.robot_name} initialized.")
 
         # Setup MuJoCo
-        self._setup_mujoco(args.robot_name)
-        if self.viewer is None:  # Setup failed
+        self.setup_mujoco(args.robot_name)
+        if self.viewer is None:
+            logger.warning(f"Setup failed for {args.robot_name}")
             return
 
         self.is_initialized = True
 
-    def _setup_mujoco(self, robot_name):
+    def setup_mujoco(self, robot_name):
         """Initializes the MuJoCo model, data, and viewer."""
         try:
             model = load_robot_description(f"{robot_name}_hand_mj_description")
@@ -162,27 +208,33 @@ class AppState:
 
         data = mujoco.MjData(model)
 
-        # # DEBUG: Iterate through all joints in the model
-        # for i in range(model.njnt):
-        #     joint_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, i)
-        #     qpos_address = model.jnt_qposadr[i]
-        #     print(f"Joint '{joint_name}' (ID: {i}) starts at qpos index: {qpos_address}")
-
-        D2M = DEX_RETARGETING_TO_MUJOCO_JOINT_NAMES[robot_name]  # alias
+        if DEBUG:  # Iterate through all joints in the model
+            for i in range(model.njnt):
+                joint_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, i)
+                qpos_address = model.jnt_qposadr[i]
+                print(f"Joint '{joint_name}' (ID: {i}) starts at qpos index: {qpos_address}")
 
         # Create joint mapping
-        retargeting_joint_names = self.retargeting.joint_names
-        mujoco_joint_ids = [
-            mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, D2M[name])
-            for name in retargeting_joint_names
-        ]
+        if robot_name in ROBOTS_WITH_DIFFERENT_JOINT_NAMES:
+            D2M = DEX_RETARGETING_TO_MUJOCO_JOINT_NAMES[robot_name]  # alias
+            retargeting_joint_names = [D2M[name] for name in self.retargeting.joint_names]
+        else:
+            retargeting_joint_names = self.retargeting.joint_names
+        if DEBUG:
+            print(f"{retargeting_joint_names=}")
 
-        # Filter out joints not found in the MuJoCo model (-1)
-        # and create a mapping for the qpos array
+        mujoco_joint_ids = []
+        for name in retargeting_joint_names:
+            jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+            if jid == -1:
+                logger.warning(f"Joint {name} not found in MuJoCo model.")
+            mujoco_joint_ids.append(jid)
+
+        # Create a mapping between retargeted pose and qpos array
         self.retargeting_to_mujoco_map = []
         for i, jid in enumerate(mujoco_joint_ids):
             if jid != -1:
-                # (index_in_retargeting_qpos, index_in_mujoco_qpos)
+                # NOTE: (index_in_retargeting_qpos, index_in_mujoco_qpos)
                 self.retargeting_to_mujoco_map.append((i, model.jnt_qposadr[jid]))
 
         self.model = model
@@ -199,11 +251,17 @@ def on_body_pose_message(message: bytes, state: AppState):
 
     try:
         if isinstance(message, bytes) and state.viewer.is_running():
+            if state.visualizer:
+                rr = state.visualizer
+                rr.set_time_sequence("body_pose_timestamp", int(time.time() * 1000))
+
             pose_data = deserialize_pose_data(message, z_up=True)
             if not pose_data:
+                logger.warning("Body pose data is empty.")
                 return
 
             hand_data = get_hand_centric_coordinates(pose_data, state.args.hand_type)
+            hand_data = rotate_bones(hand_data, R.from_rotvec(np.array([0, 0, 1]) * np.pi))
 
             bone_map = {b.id: b for b in hand_data}
             mapping = (
@@ -224,6 +282,20 @@ def on_body_pose_message(message: bytes, state: AppState):
                     break
 
             if hand_detected:
+                if state.visualizer:
+                    rr.log(
+                        "world/human_hand/points",
+                        rr.Points3D(positions=hand_keypoints, radii=0.005),
+                    )
+                    connections = [
+                        (hand_keypoints[start], hand_keypoints[end])
+                        for start, end in MANO_HAND_CONNECTIVITY
+                    ]
+                    rr.log(
+                        "world/human_hand/skeleton",
+                        rr.LineStrips3D(strips=connections, radii=0.002),
+                    )
+
                 # Get target vectors for retargeting
                 optimizer = state.retargeting.optimizer
                 indices = optimizer.target_link_human_indices
@@ -235,15 +307,61 @@ def on_body_pose_message(message: bytes, state: AppState):
 
                 # Retarget
                 qpos = state.retargeting.retarget(ref_value=target_vectors)
-                # print(f"{qpos=}")  # DEBUG
+                if DEBUG:
+                    print(f"{qpos=}")
+
+                if state.visualizer:
+                    robot = state.retargeting.optimizer.robot
+                    robot.compute_forward_kinematics(qpos)
+
+                    if optimizer.retargeting_type in ["VECTOR", "DEXPILOT"]:
+                        origin_link_names = optimizer.origin_link_names
+                        task_link_names = optimizer.task_link_names
+                        all_link_names = sorted(set(origin_link_names + task_link_names))
+                        link_name_to_idx = {name: i for i, name in enumerate(all_link_names)}
+
+                        rr.log(
+                            "world/dex_retargeting/target_vectors",
+                            rr.Arrows3D(
+                                origins=origin_points,
+                                vectors=target_vectors,
+                                # TODO: remainders (colors, radii, labels)
+                            ),
+                        )
+
+                        positions = np.array(
+                            [
+                                robot.get_link_pose(robot.get_link_index(name))[:3, 3]
+                                for name in all_link_names
+                            ]
+                        )
+
+                        rr.log(
+                            "world/robot_hand/points",
+                            rr.Points3D(positions=positions, radii=0.005),
+                        )
+
+                        connections = [
+                            (
+                                positions[link_name_to_idx[origin]],
+                                positions[link_name_to_idx[task]],
+                            )
+                            for origin, task in zip(origin_link_names, task_link_names)
+                        ]
+                        rr.log(
+                            "world/robot_hand/skeleton",
+                            rr.LineStrips3D(strips=connections, radii=0.002),
+                        )
 
                 # Apply to MuJoCo model
                 for retarget_idx, mujoco_idx in state.retargeting_to_mujoco_map:
                     state.data.qpos[mujoco_idx] = qpos[retarget_idx]
 
             # Step the simulation and render
-            # mujoco.mj_step(state.model, state.data)  # original
-            mujoco.mj_forward(state.model, state.data)  # DEBUG: update kinematics only
+            if ENABLE_DYNAMICS:
+                mujoco.mj_step(state.model, state.data)
+            else:
+                mujoco.mj_forward(state.model, state.data)  # update kinematics only
             state.viewer.sync()
 
     except Exception as e:
@@ -257,15 +375,18 @@ def main():
     parser.add_argument(
         "--robot-name",
         type=str,
-        default="ability",
+        default=DEFAULT_ROBOT,
         choices=[r.name for r in RobotName],
         help="Name of the robot hand to use.",
     )
     parser.add_argument(
         "--retargeting-type",
         type=str,
-        default="dexpilot",
-        choices=[t.name for t in RetargetingType if t != RetargetingType.position],
+        # default="position",
+        default="vector",
+        # default="dexpilot",
+        # choices=[t.name for t in RetargetingType if t != RetargetingType.position],
+        choices=[t.name for t in RetargetingType],
         help="Type of retargeting to use.",
     )
     parser.add_argument(
@@ -285,7 +406,22 @@ def main():
 
     configure_logging(level=args.log_level.upper())
 
-    state_factory = partial(AppState, args=args)
+    rr.init("dextrous_hand_control", spawn=True)
+    rr.log("world", rr.ViewCoordinates.RIGHT_HAND_Z_UP, static=True)
+
+    # Log world frame axes
+    rr.log(
+        "world/axes",
+        rr.Arrows3D(
+            origins=[[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+            vectors=[[0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1]],
+            colors=[[255, 0, 0], [0, 255, 0], [0, 0, 255]],
+            labels=["X", "Y", "Z"],
+        ),
+        static=True,
+    )
+
+    state_factory = partial(AppState, args=args, visualizer=rr)
     data_handlers = {
         "body_pose": on_body_pose_message,
     }
