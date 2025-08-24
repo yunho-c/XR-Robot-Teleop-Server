@@ -1,3 +1,26 @@
+"""
+Usage:
+# HDF5 format (requires: pip install h5py)
+python examples/record_body_pose.py --format hdf5
+
+# Other formats
+python examples/record_body_pose.py --format csv
+python examples/record_body_pose.py --format jsonl
+
+HDF5 Structure:
+body_pose_YYYYMMDD_HHMMSS.h5
+├── metadata/           # Reserved for future metadata
+├── pose_data/
+│   ├── frame_0/
+│   │   ├── bone_ids    # Array of bone IDs
+│   │   ├── positions   # [N, 3] array (compressed)
+│   │   └── rotations   # [N, 4] array (compressed)
+│   └── frame_1/
+│       └── ...
+
+The script gracefully handles missing h5py dependency with a clear error message.
+"""
+
 import argparse
 import csv
 import json
@@ -5,6 +28,13 @@ import os
 import time
 from datetime import datetime
 from functools import partial
+
+try:
+    import h5py
+
+    HDF5_AVAILABLE = True
+except ImportError:
+    HDF5_AVAILABLE = False
 
 from xr_robot_teleop_server import configure_logging
 from xr_robot_teleop_server.schemas.body_pose import (
@@ -24,6 +54,8 @@ class RecorderState:
         self.pose_count = 0
         self.csv_writer = None
         self.csv_file = None
+        self.hdf5_file = None
+        self.hdf5_datasets = {}
 
     def __repr__(self):
         return f"<RecorderState output_file={self.output_file}>"
@@ -37,14 +69,32 @@ def on_body_pose_message(message: bytes, state: RecorderState):
                 print(f"Started recording body pose data to {state.output_file}")
                 state.recording_started = True
 
-                # Initialize CSV writer if needed
+                # Initialize writers based on format
                 if state.output_format == "csv":
                     state.csv_file = open(state.output_file, "w", newline="")
-                    fieldnames = ["timestamp", "datetime", "bone_id",
-                                "pos_x", "pos_y", "pos_z",
-                                "rot_x", "rot_y", "rot_z", "rot_w"]
+                    fieldnames = [
+                        "timestamp",
+                        "datetime",
+                        "bone_id",
+                        "pos_x",
+                        "pos_y",
+                        "pos_z",
+                        "rot_x",
+                        "rot_y",
+                        "rot_z",
+                        "rot_w",
+                    ]
                     state.csv_writer = csv.DictWriter(state.csv_file, fieldnames=fieldnames)
                     state.csv_writer.writeheader()
+                elif state.output_format == "hdf5":
+                    state.hdf5_file = h5py.File(state.output_file, "w")
+                    # Create groups for organized data
+                    state.hdf5_file.create_group("metadata")
+                    state.hdf5_file.create_group("pose_data")
+                    # Store metadata
+                    state.hdf5_file.attrs["format_version"] = "1.0"
+                    state.hdf5_file.attrs["created_at"] = datetime.now().isoformat()
+                    state.hdf5_file.attrs["convert_unity_coords"] = CONVERT_UNITY_COORDS
 
             timestamp = time.time()
             datetime_str = datetime.fromtimestamp(timestamp).isoformat()
@@ -66,6 +116,28 @@ def on_body_pose_message(message: bytes, state: RecorderState):
                     }
                     state.csv_writer.writerow(row)
                 state.csv_file.flush()
+            elif state.output_format == "hdf5":
+                # Store data efficiently in HDF5 format
+                frame_group = state.hdf5_file["pose_data"].create_group(f"frame_{state.pose_count}")
+                frame_group.attrs["timestamp"] = timestamp
+                frame_group.attrs["datetime"] = datetime_str
+
+                # Create datasets for positions and rotations
+                bone_ids = [bone.id for bone in pose_data]
+                positions = [
+                    [bone.position[0], bone.position[1], bone.position[2]] for bone in pose_data
+                ]
+                rotations = [
+                    [bone.rotation[0], bone.rotation[1], bone.rotation[2], bone.rotation[3]]
+                    for bone in pose_data
+                ]
+
+                frame_group.create_dataset("bone_ids", data=bone_ids)
+                frame_group.create_dataset("positions", data=positions, compression="gzip")
+                frame_group.create_dataset("rotations", data=rotations, compression="gzip")
+                # Flush every 10 frames to ensure data is written
+                if state.pose_count % 10 == 0:
+                    state.hdf5_file.flush()
             else:
                 # JSONL format (original behavior)
                 pose_entry = {
@@ -126,9 +198,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--format",
         type=str,
-        choices=["jsonl", "csv"],
+        choices=["jsonl", "csv", "hdf5"],
         default="jsonl",
-        help="Output format: jsonl or csv (default: jsonl)",
+        help="Output format: jsonl, csv, or hdf5 (default: jsonl)",
     )
     args = parser.parse_args()
 
@@ -138,10 +210,20 @@ if __name__ == "__main__":
     # Create output directory if it doesn't exist
     os.makedirs(args.output_dir, exist_ok=True)
 
+    # Check HDF5 availability if requested
+    if args.format == "hdf5" and not HDF5_AVAILABLE:
+        print("Error: HDF5 format requires h5py. Install with: pip install h5py")
+        exit(1)
+
     # Generate output filename if not provided
     if args.output_file is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        extension = "csv" if args.format == "csv" else "jsonl"
+        if args.format == "csv":
+            extension = "csv"
+        elif args.format == "hdf5":
+            extension = "h5"
+        else:
+            extension = "jsonl"
         output_file = os.path.join(args.output_dir, f"body_pose_{timestamp}.{extension}")
     else:
         output_file = args.output_file
@@ -162,10 +244,12 @@ if __name__ == "__main__":
     try:
         server.run()
     except KeyboardInterrupt:
-        # Clean up CSV file if it was opened
+        # Clean up files if they were opened
         state = state_factory()
-        if hasattr(state, 'csv_file') and state.csv_file:
+        if hasattr(state, "csv_file") and state.csv_file:
             state.csv_file.close()
+        if hasattr(state, "hdf5_file") and state.hdf5_file:
+            state.hdf5_file.close()
         print(
             f"\nRecording stopped. Total poses recorded: "
             f"{state.pose_count if hasattr(state, 'pose_count') else 'unknown'}"
