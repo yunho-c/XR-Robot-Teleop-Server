@@ -48,12 +48,20 @@ _current_state = None
 
 
 class RecorderState:
-    def __init__(self, output_file: str, output_format: str = "jsonl", decimal_precision: int = 3):
+    def __init__(
+        self,
+        output_file: str,
+        output_format: str = "jsonl",
+        decimal_precision: int = 3,
+        relative_time: bool = True,
+    ):
         self.output_file = output_file
         self.output_format = output_format.lower()
         self.decimal_precision = decimal_precision
+        self.relative_time = relative_time
         self.recording_started = False
         self.pose_count = 0
+        self.start_time = None
         self.csv_writer = None
         self.csv_file = None
         self.hdf5_file = None
@@ -75,22 +83,36 @@ def on_body_pose_message(message: bytes, state: RecorderState):
             if not state.recording_started:
                 print(f"Started recording body pose data to {state.output_file}")
                 state.recording_started = True
+                state.start_time = time.time()
 
                 # Initialize writers based on format
                 if state.output_format == "csv":
                     state.csv_file = open(state.output_file, "w", newline="")
-                    fieldnames = [
-                        "timestamp",
-                        "datetime",
-                        "bone_id",
-                        "pos_x",
-                        "pos_y",
-                        "pos_z",
-                        "rot_x",
-                        "rot_y",
-                        "rot_z",
-                        "rot_w",
-                    ]
+                    if state.relative_time:
+                        fieldnames = [
+                            "time_elapsed",
+                            "bone_id",
+                            "pos_x",
+                            "pos_y",
+                            "pos_z",
+                            "rot_x",
+                            "rot_y",
+                            "rot_z",
+                            "rot_w",
+                        ]
+                    else:
+                        fieldnames = [
+                            "timestamp",
+                            "datetime",
+                            "bone_id",
+                            "pos_x",
+                            "pos_y",
+                            "pos_z",
+                            "rot_x",
+                            "rot_y",
+                            "rot_z",
+                            "rot_w",
+                        ]
                     state.csv_writer = csv.DictWriter(state.csv_file, fieldnames=fieldnames)
                     state.csv_writer.writeheader()
                 elif state.output_format == "hdf5":
@@ -111,18 +133,32 @@ def on_body_pose_message(message: bytes, state: RecorderState):
             if state.output_format == "csv":
                 # Write each bone as a separate row in CSV
                 for bone in pose_data:
-                    row = {
-                        "timestamp": timestamp,
-                        "datetime": datetime_str,
-                        "bone_id": bone.id,
-                        "pos_x": round(float(bone.position[0]), state.decimal_precision),
-                        "pos_y": round(float(bone.position[1]), state.decimal_precision),
-                        "pos_z": round(float(bone.position[2]), state.decimal_precision),
-                        "rot_x": round(float(bone.rotation[0]), state.decimal_precision),
-                        "rot_y": round(float(bone.rotation[1]), state.decimal_precision),
-                        "rot_z": round(float(bone.rotation[2]), state.decimal_precision),
-                        "rot_w": round(float(bone.rotation[3]), state.decimal_precision),
-                    }
+                    if state.relative_time:
+                        time_elapsed = timestamp - state.start_time
+                        row = {
+                            "time_elapsed": round(time_elapsed, state.decimal_precision),
+                            "bone_id": bone.id,
+                            "pos_x": round(float(bone.position[0]), state.decimal_precision),
+                            "pos_y": round(float(bone.position[1]), state.decimal_precision),
+                            "pos_z": round(float(bone.position[2]), state.decimal_precision),
+                            "rot_x": round(float(bone.rotation[0]), state.decimal_precision),
+                            "rot_y": round(float(bone.rotation[1]), state.decimal_precision),
+                            "rot_z": round(float(bone.rotation[2]), state.decimal_precision),
+                            "rot_w": round(float(bone.rotation[3]), state.decimal_precision),
+                        }
+                    else:
+                        row = {
+                            "timestamp": timestamp,
+                            "datetime": datetime_str,
+                            "bone_id": bone.id,
+                            "pos_x": round(float(bone.position[0]), state.decimal_precision),
+                            "pos_y": round(float(bone.position[1]), state.decimal_precision),
+                            "pos_z": round(float(bone.position[2]), state.decimal_precision),
+                            "rot_x": round(float(bone.rotation[0]), state.decimal_precision),
+                            "rot_y": round(float(bone.rotation[1]), state.decimal_precision),
+                            "rot_z": round(float(bone.rotation[2]), state.decimal_precision),
+                            "rot_w": round(float(bone.rotation[3]), state.decimal_precision),
+                        }
                     state.csv_writer.writerow(row)
                 state.csv_file.flush()
             elif state.output_format == "hdf5":
@@ -148,21 +184,28 @@ def on_body_pose_message(message: bytes, state: RecorderState):
                     state.hdf5_file.flush()
             else:
                 # JSONL format (original behavior)
-                pose_entry = {
-                    "timestamp": timestamp,
-                    "datetime": datetime_str,
-                    "bones": [],
-                }
+                if state.relative_time:
+                    time_elapsed = timestamp - state.start_time
+                    pose_entry = {
+                        "time_elapsed": round(time_elapsed, state.decimal_precision),
+                        "bones": [],
+                    }
+                else:
+                    pose_entry = {
+                        "timestamp": timestamp,
+                        "datetime": datetime_str,
+                        "bones": [],
+                    }
 
                 for bone in pose_data:
                     bone_entry = {
                         "id": bone.id,
-                        "position": {
+                        "pos": {
                             "x": round(float(bone.position[0]), state.decimal_precision),
                             "y": round(float(bone.position[1]), state.decimal_precision),
                             "z": round(float(bone.position[2]), state.decimal_precision),
                         },
-                        "rotation": {
+                        "rot": {
                             "x": round(float(bone.rotation[0]), state.decimal_precision),
                             "y": round(float(bone.rotation[1]), state.decimal_precision),
                             "z": round(float(bone.rotation[2]), state.decimal_precision),
@@ -188,6 +231,7 @@ def finalize_hdf5_recording(state: RecorderState):
     if state.output_format != "hdf5" or not state.hdf5_file or not state.time_data:
         return
     import numpy as np
+
     # Convert lists to numpy arrays for efficient storage
     time_array = np.array(state.time_data, dtype=np.float64)
     positions_array = np.array(state.positions_data, dtype=np.float32)
@@ -195,11 +239,7 @@ def finalize_hdf5_recording(state: RecorderState):
 
     # Create the time dataset (1D array)
     time_dataset = state.hdf5_file.create_dataset(
-        "time",
-        data=time_array,
-        compression="gzip",
-        shuffle=True,
-        fletcher32=True
+        "time", data=time_array, compression="gzip", shuffle=True, fletcher32=True
     )
     time_dataset.attrs["units"] = (
         f"seconds since {datetime.fromtimestamp(time_array[0]).isoformat()}"
@@ -207,22 +247,14 @@ def finalize_hdf5_recording(state: RecorderState):
     time_dataset.attrs["description"] = "Unix timestamps for each pose frame"
     # Create positions dataset (3D array: [timesteps, bones, xyz])
     positions_dataset = state.hdf5_file.create_dataset(
-        "positions",
-        data=positions_array,
-        compression="gzip",
-        shuffle=True,
-        fletcher32=True
+        "positions", data=positions_array, compression="gzip", shuffle=True, fletcher32=True
     )
     positions_dataset.attrs["units"] = "meters" if CONVERT_UNITY_COORDS else "unity_units"
     positions_dataset.attrs["description"] = "XYZ positions for each bone at each timestep"
     positions_dataset.attrs["dimensions"] = "time, bone_index, xyz"
     # Create rotations dataset (3D array: [timesteps, bones, wxyz])
     rotations_dataset = state.hdf5_file.create_dataset(
-        "rotations",
-        data=rotations_array,
-        compression="gzip",
-        shuffle=True,
-        fletcher32=True
+        "rotations", data=rotations_array, compression="gzip", shuffle=True, fletcher32=True
     )
     rotations_dataset.attrs["units"] = "quaternion"
     rotations_dataset.attrs["description"] = (
@@ -231,8 +263,7 @@ def finalize_hdf5_recording(state: RecorderState):
     rotations_dataset.attrs["dimensions"] = "time, bone_index, xyzw"
     # Create bone_ids dataset (1D array of bone identifiers)
     bone_ids_dataset = state.hdf5_file.create_dataset(
-        "bone_ids",
-        data=np.array(state.initial_bone_ids, dtype=h5py.string_dtype())
+        "bone_ids", data=np.array(state.initial_bone_ids, dtype=h5py.string_dtype())
     )
     bone_ids_dataset.attrs["description"] = (
         "Bone identifiers corresponding to the bone_index dimension"
@@ -267,8 +298,7 @@ def finalize_hdf5_recording(state: RecorderState):
     )
     state.hdf5_file.flush()
     print(
-        f"HDF5 data finalized: {len(state.time_data)} frames, "
-        f"{len(state.initial_bone_ids)} bones"
+        f"HDF5 data finalized: {len(state.time_data)} frames, {len(state.initial_bone_ids)} bones"
     )
 
 
@@ -308,6 +338,14 @@ if __name__ == "__main__":
             "in JSONL and CSV formats (default: 3)"
         ),
     )
+    parser.add_argument(
+        "--absolute-time",
+        action="store_true",
+        help=(
+            "Use absolute timestamp/datetime instead of relative "
+            "time_elapsed for JSONL and CSV formats"
+        ),
+    )
     args = parser.parse_args()
 
     # Configure logging
@@ -341,7 +379,8 @@ if __name__ == "__main__":
         _current_state = RecorderState(
             output_file=output_file,
             output_format=args.format,
-            decimal_precision=args.decimal_precision
+            decimal_precision=args.decimal_precision,
+            relative_time=not args.absolute_time,
         )
         return _current_state
 
