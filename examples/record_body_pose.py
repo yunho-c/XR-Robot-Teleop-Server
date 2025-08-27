@@ -43,6 +43,9 @@ from xr_robot_teleop_server.streaming import WebRTCServer
 # Params
 CONVERT_UNITY_COORDS = True
 
+# Global state reference for cleanup
+_current_state = None
+
 
 class RecorderState:
     def __init__(self, output_file: str, output_format: str = "jsonl"):
@@ -323,7 +326,13 @@ if __name__ == "__main__":
 
     print(f"Body pose data will be recorded to: {output_file}")
 
-    state_factory = partial(RecorderState, output_file=output_file, output_format=args.format)
+    def state_factory():
+        global _current_state
+        _current_state = RecorderState(
+            output_file=output_file,
+            output_format=args.format,
+        )
+        return _current_state
 
     data_handlers = {
         "body_pose": on_body_pose_message,
@@ -340,12 +349,8 @@ if __name__ == "__main__":
         pass
     finally:
         print("\nStopping recording...")
-        # Access the state from the server
-        if hasattr(server, '_state') and server._state:
-            state = server._state
-        else:
-            # Fallback: create new state instance to access globals
-            state = state_factory()
+        # Use the global state reference
+        state = _current_state
         # Finalize HDF5 recording with proper data structure
         if state.output_format == "hdf5":
             finalize_hdf5_recording(state)
