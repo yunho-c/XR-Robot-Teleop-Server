@@ -7,16 +7,14 @@ python examples/record_body_pose.py --format hdf5
 python examples/record_body_pose.py --format csv
 python examples/record_body_pose.py --format jsonl
 
-HDF5 Structure:
+HDF5 Structure (follows time-varying data best practices):
 body_pose_YYYYMMDD_HHMMSS.h5
-├── metadata/           # Reserved for future metadata
-├── pose_data/
-│   ├── frame_0/
-│   │   ├── bone_ids    # Array of bone IDs
-│   │   ├── positions   # [N, 3] array (compressed)
-│   │   └── rotations   # [N, 4] array (compressed)
-│   └── frame_1/
-│       └── ...
+├── time              # [timesteps] - time index with proper units
+├── positions         # [timesteps, bones, 3] - XYZ positions (compressed)
+├── rotations         # [timesteps, bones, 4] - XYZW quaternions (compressed)
+├── bone_ids          # [bones] - bone identifiers
+├── bone_index        # [bones] - dimension scale for bone axis
+└── attributes:       # metadata including format_version, created_at, etc.
 
 The script gracefully handles missing h5py dependency with a clear error message.
 """
@@ -56,6 +54,11 @@ class RecorderState:
         self.csv_file = None
         self.hdf5_file = None
         self.hdf5_datasets = {}
+        self.time_data = []
+        self.positions_data = []
+        self.rotations_data = []
+        self.bone_ids_data = []
+        self.initial_bone_ids = None
 
     def __repr__(self):
         return f"<RecorderState output_file={self.output_file}>"
@@ -88,13 +91,15 @@ def on_body_pose_message(message: bytes, state: RecorderState):
                     state.csv_writer.writeheader()
                 elif state.output_format == "hdf5":
                     state.hdf5_file = h5py.File(state.output_file, "w")
-                    # Create groups for organized data
-                    state.hdf5_file.create_group("metadata")
-                    state.hdf5_file.create_group("pose_data")
-                    # Store metadata
-                    state.hdf5_file.attrs["format_version"] = "1.0"
+                    # Store metadata at root level
+                    state.hdf5_file.attrs["format_version"] = "2.0"
                     state.hdf5_file.attrs["created_at"] = datetime.now().isoformat()
                     state.hdf5_file.attrs["convert_unity_coords"] = CONVERT_UNITY_COORDS
+                    state.hdf5_file.attrs["description"] = (
+                        "Body pose recording with time-varying data structure"
+                    )
+                    # Store initial bone IDs for consistency checking
+                    state.initial_bone_ids = [bone.id for bone in pose_data]
 
             timestamp = time.time()
             datetime_str = datetime.fromtimestamp(timestamp).isoformat()
@@ -117,13 +122,13 @@ def on_body_pose_message(message: bytes, state: RecorderState):
                     state.csv_writer.writerow(row)
                 state.csv_file.flush()
             elif state.output_format == "hdf5":
-                # Store data efficiently in HDF5 format
-                frame_group = state.hdf5_file["pose_data"].create_group(f"frame_{state.pose_count}")
-                frame_group.attrs["timestamp"] = timestamp
-                frame_group.attrs["datetime"] = datetime_str
-
-                # Create datasets for positions and rotations
-                bone_ids = [bone.id for bone in pose_data]
+                # Collect data in memory for efficient batch writing
+                state.time_data.append(timestamp)
+                # Verify bone IDs are consistent
+                current_bone_ids = [bone.id for bone in pose_data]
+                if current_bone_ids != state.initial_bone_ids:
+                    print(f"Warning: Bone IDs changed at frame {state.pose_count}")
+                # Collect positions and rotations
                 positions = [
                     [bone.position[0], bone.position[1], bone.position[2]] for bone in pose_data
                 ]
@@ -132,11 +137,10 @@ def on_body_pose_message(message: bytes, state: RecorderState):
                     for bone in pose_data
                 ]
 
-                frame_group.create_dataset("bone_ids", data=bone_ids)
-                frame_group.create_dataset("positions", data=positions, compression="gzip")
-                frame_group.create_dataset("rotations", data=rotations, compression="gzip")
-                # Flush every 10 frames to ensure data is written
-                if state.pose_count % 10 == 0:
+                state.positions_data.append(positions)
+                state.rotations_data.append(rotations)
+                # Write to HDF5 every 100 frames for efficiency
+                if state.pose_count % 100 == 0:
                     state.hdf5_file.flush()
             else:
                 # JSONL format (original behavior)
@@ -173,6 +177,95 @@ def on_body_pose_message(message: bytes, state: RecorderState):
 
     except Exception as e:
         print(f"Could not process body pose data: {e}")
+
+
+def finalize_hdf5_recording(state: RecorderState):
+    """Write accumulated data to HDF5 file using best practices for time-varying data."""
+    if state.output_format != "hdf5" or not state.hdf5_file or not state.time_data:
+        return
+    import numpy as np
+    # Convert lists to numpy arrays for efficient storage
+    time_array = np.array(state.time_data, dtype=np.float64)
+    positions_array = np.array(state.positions_data, dtype=np.float32)
+    rotations_array = np.array(state.rotations_data, dtype=np.float32)
+
+    # Create the time dataset (1D array)
+    time_dataset = state.hdf5_file.create_dataset(
+        "time",
+        data=time_array,
+        compression="gzip",
+        shuffle=True,
+        fletcher32=True
+    )
+    time_dataset.attrs["units"] = (
+        f"seconds since {datetime.fromtimestamp(time_array[0]).isoformat()}"
+    )
+    time_dataset.attrs["description"] = "Unix timestamps for each pose frame"
+    # Create positions dataset (3D array: [timesteps, bones, xyz])
+    positions_dataset = state.hdf5_file.create_dataset(
+        "positions",
+        data=positions_array,
+        compression="gzip",
+        shuffle=True,
+        fletcher32=True
+    )
+    positions_dataset.attrs["units"] = "meters" if CONVERT_UNITY_COORDS else "unity_units"
+    positions_dataset.attrs["description"] = "XYZ positions for each bone at each timestep"
+    positions_dataset.attrs["dimensions"] = "time, bone_index, xyz"
+    # Create rotations dataset (3D array: [timesteps, bones, wxyz])
+    rotations_dataset = state.hdf5_file.create_dataset(
+        "rotations",
+        data=rotations_array,
+        compression="gzip",
+        shuffle=True,
+        fletcher32=True
+    )
+    rotations_dataset.attrs["units"] = "quaternion"
+    rotations_dataset.attrs["description"] = (
+        "XYZW quaternion rotations for each bone at each timestep"
+    )
+    rotations_dataset.attrs["dimensions"] = "time, bone_index, xyzw"
+    # Create bone_ids dataset (1D array of bone identifiers)
+    bone_ids_dataset = state.hdf5_file.create_dataset(
+        "bone_ids",
+        data=np.array(state.initial_bone_ids, dtype=h5py.string_dtype())
+    )
+    bone_ids_dataset.attrs["description"] = (
+        "Bone identifiers corresponding to the bone_index dimension"
+    )
+    # Set up dimension scales for proper HDF5 structure
+    try:
+        # Make time dataset a dimension scale
+        time_dataset.make_scale("time")
+        # Create bone index dimension scale
+        bone_index = np.arange(len(state.initial_bone_ids), dtype=np.int32)
+        bone_index_dataset = state.hdf5_file.create_dataset("bone_index", data=bone_index)
+        bone_index_dataset.make_scale("bone_index")
+        # Attach dimension scales to data arrays
+        positions_dataset.dims[0].attach_scale(time_dataset)
+        positions_dataset.dims[1].attach_scale(bone_index_dataset)
+        positions_dataset.dims[0].label = "time"
+        positions_dataset.dims[1].label = "bone_index"
+        positions_dataset.dims[2].label = "xyz"
+
+        rotations_dataset.dims[0].attach_scale(time_dataset)
+        rotations_dataset.dims[1].attach_scale(bone_index_dataset)
+        rotations_dataset.dims[0].label = "time"
+        rotations_dataset.dims[1].label = "bone_index"
+        rotations_dataset.dims[2].label = "xyzw"
+    except Exception as e:
+        print(f"Warning: Could not set up dimension scales: {e}")
+    # Store final statistics
+    state.hdf5_file.attrs["total_frames"] = len(state.time_data)
+    state.hdf5_file.attrs["num_bones"] = len(state.initial_bone_ids)
+    state.hdf5_file.attrs["duration_seconds"] = (
+        float(time_array[-1] - time_array[0]) if len(time_array) > 1 else 0.0
+    )
+    state.hdf5_file.flush()
+    print(
+        f"HDF5 data finalized: {len(state.time_data)} frames, "
+        f"{len(state.initial_bone_ids)} bones"
+    )
 
 
 if __name__ == "__main__":
@@ -244,14 +337,25 @@ if __name__ == "__main__":
     try:
         server.run()
     except KeyboardInterrupt:
-        # Clean up files if they were opened
-        state = state_factory()
+        pass
+    finally:
+        print("\nStopping recording...")
+        # Access the state from the server
+        if hasattr(server, '_state') and server._state:
+            state = server._state
+        else:
+            # Fallback: create new state instance to access globals
+            state = state_factory()
+        # Finalize HDF5 recording with proper data structure
+        if state.output_format == "hdf5":
+            finalize_hdf5_recording(state)
+        # Clean up files
         if hasattr(state, "csv_file") and state.csv_file:
             state.csv_file.close()
         if hasattr(state, "hdf5_file") and state.hdf5_file:
             state.hdf5_file.close()
         print(
-            f"\nRecording stopped. Total poses recorded: "
+            f"Recording stopped. Total poses recorded: "
             f"{state.pose_count if hasattr(state, 'pose_count') else 'unknown'}"
         )
         print(f"Data saved to: {output_file}")
