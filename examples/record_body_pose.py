@@ -48,9 +48,10 @@ _current_state = None
 
 
 class RecorderState:
-    def __init__(self, output_file: str, output_format: str = "jsonl"):
+    def __init__(self, output_file: str, output_format: str = "jsonl", decimal_precision: int = 3):
         self.output_file = output_file
         self.output_format = output_format.lower()
+        self.decimal_precision = decimal_precision
         self.recording_started = False
         self.pose_count = 0
         self.csv_writer = None
@@ -114,13 +115,13 @@ def on_body_pose_message(message: bytes, state: RecorderState):
                         "timestamp": timestamp,
                         "datetime": datetime_str,
                         "bone_id": bone.id,
-                        "pos_x": float(bone.position[0]),
-                        "pos_y": float(bone.position[1]),
-                        "pos_z": float(bone.position[2]),
-                        "rot_x": float(bone.rotation[0]),
-                        "rot_y": float(bone.rotation[1]),
-                        "rot_z": float(bone.rotation[2]),
-                        "rot_w": float(bone.rotation[3]),
+                        "pos_x": round(float(bone.position[0]), state.decimal_precision),
+                        "pos_y": round(float(bone.position[1]), state.decimal_precision),
+                        "pos_z": round(float(bone.position[2]), state.decimal_precision),
+                        "rot_x": round(float(bone.rotation[0]), state.decimal_precision),
+                        "rot_y": round(float(bone.rotation[1]), state.decimal_precision),
+                        "rot_z": round(float(bone.rotation[2]), state.decimal_precision),
+                        "rot_w": round(float(bone.rotation[3]), state.decimal_precision),
                     }
                     state.csv_writer.writerow(row)
                 state.csv_file.flush()
@@ -157,15 +158,15 @@ def on_body_pose_message(message: bytes, state: RecorderState):
                     bone_entry = {
                         "id": bone.id,
                         "position": {
-                            "x": float(bone.position[0]),
-                            "y": float(bone.position[1]),
-                            "z": float(bone.position[2]),
+                            "x": round(float(bone.position[0]), state.decimal_precision),
+                            "y": round(float(bone.position[1]), state.decimal_precision),
+                            "z": round(float(bone.position[2]), state.decimal_precision),
                         },
                         "rotation": {
-                            "x": float(bone.rotation[0]),
-                            "y": float(bone.rotation[1]),
-                            "z": float(bone.rotation[2]),
-                            "w": float(bone.rotation[3]),
+                            "x": round(float(bone.rotation[0]), state.decimal_precision),
+                            "y": round(float(bone.rotation[1]), state.decimal_precision),
+                            "z": round(float(bone.rotation[2]), state.decimal_precision),
+                            "w": round(float(bone.rotation[3]), state.decimal_precision),
                         },
                     }
                     pose_entry["bones"].append(bone_entry)
@@ -298,6 +299,15 @@ if __name__ == "__main__":
         default="jsonl",
         help="Output format: jsonl, csv, or hdf5 (default: jsonl)",
     )
+    parser.add_argument(
+        "--decimal-precision",
+        type=int,
+        default=3,
+        help=(
+            "Number of decimal places for position/rotation values "
+            "in JSONL and CSV formats (default: 3)"
+        ),
+    )
     args = parser.parse_args()
 
     # Configure logging
@@ -331,6 +341,7 @@ if __name__ == "__main__":
         _current_state = RecorderState(
             output_file=output_file,
             output_format=args.format,
+            decimal_precision=args.decimal_precision
         )
         return _current_state
 
