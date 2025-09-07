@@ -137,7 +137,6 @@ class WebRTCServer:
 
         # Create a video track if peer connection requests
         if self._video_track_factory:
-
             client_video_codecs = get_video_codecs_from_sdp(offer.sdp)
             logger.debug(f"Video codecs available in client: {client_video_codecs}")
             parsed_offer = SessionDescription.parse(offer.sdp)
