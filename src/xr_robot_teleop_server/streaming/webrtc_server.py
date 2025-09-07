@@ -6,10 +6,12 @@ from functools import wraps
 
 import uvicorn
 from aiortc import RTCPeerConnection, RTCSessionDescription
+from aiortc.sdp import SessionDescription
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from .. import logger
+from ..utils.codecs import get_video_codecs_from_sdp
 
 
 class WebRTCServer:
@@ -135,9 +137,11 @@ class WebRTCServer:
 
         # Create a video track if peer connection requests
         if self._video_track_factory:
-            from aiortc.sdp import SessionDescription
 
+            client_video_codecs = get_video_codecs_from_sdp(offer.sdp)
+            logger.debug(f"Video codecs available in client: {client_video_codecs}")
             parsed_offer = SessionDescription.parse(offer.sdp)
+            logger.debug(f"Client {parsed_offer.media=}")
             if any(m.kind == "video" and m.port != 0 for m in parsed_offer.media):
                 logger.info(f"{pc_id}: Client wants video, creating track.")
                 video_track = await self._video_track_factory(state=state)
@@ -174,6 +178,10 @@ class WebRTCServer:
         try:
             await pc.setRemoteDescription(offer)
             answer = await pc.createAnswer()
+            server_video_codecs = get_video_codecs_from_sdp(answer.sdp)
+            logger.debug(f"{pc_id}: Video codecs available in server: {server_video_codecs}")
+            parsed_offer = SessionDescription.parse(answer.sdp)
+            logger.debug(f"Server {parsed_offer.media=}")
             await pc.setLocalDescription(answer)
 
         except Exception as e:
