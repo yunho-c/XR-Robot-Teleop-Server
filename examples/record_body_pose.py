@@ -25,7 +25,6 @@ import json
 import os
 import time
 from datetime import datetime
-from functools import partial
 
 try:
     import h5py

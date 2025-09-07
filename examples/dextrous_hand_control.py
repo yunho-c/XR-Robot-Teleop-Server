@@ -407,7 +407,9 @@ def on_body_pose_message(message: bytes, state: AppState):
                                 positions[link_name_to_idx[origin]],
                                 positions[link_name_to_idx[task]],
                             )
-                            for origin, task in zip(origin_link_names, task_link_names)
+                            for origin, task in zip(
+                                origin_link_names, task_link_names, strict=False
+                            )
                         ]
                         rr.log(
                             "world/robot_hand/skeleton",
