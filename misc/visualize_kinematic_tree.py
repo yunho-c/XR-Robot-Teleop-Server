@@ -7,12 +7,19 @@ that are much more readable than NetworkX spring layouts.
 Requirements:
     pip install graphviz
     pip install matplotlib
-    
+
 Usage:
     python visualize_kinematic_tree_optimal.py
     python visualize_kinematic_tree_optimal.py --format svg
     python visualize_kinematic_tree_optimal.py --generate-mermaid
-    python visualize_kinematic_tree_optimal.py --focus-category Left_Hand
+    python visualize_kinematic_tree_optimal.py --focus-category C
+    python visualize_kinematic_tree_optimal.py --matrix --generate-mermaid
+
+Features:
+    - Shows complete kinematic trees with missing bones as dashed nodes
+    - Broken connections displayed as dashed/red lines
+    - Color-coded by body part categories
+    - Detailed analysis of missing bones and broken chains
 """
 
 import argparse
@@ -217,48 +224,45 @@ def get_available_bones(mapping_dict: Dict) -> Set[FullBodyBoneId]:
     return {bone_id for bone_id in mapping_dict.values() if bone_id is not None}
 
 
-def create_graphviz_tree(connections: List[Tuple], available_bones: Set[FullBodyBoneId], 
+def create_graphviz_tree(connections: List[Tuple], available_bones: Set[FullBodyBoneId],
                         title: str, output_format: str = 'png', focus_category: Optional[str] = None) -> str:
     """Create a hierarchical tree visualization using Graphviz."""
     if not GRAPHVIZ_AVAILABLE:
         print("Graphviz not available. Skipping tree generation.")
         return ""
-    
-    # Filter connections based on available bones
-    filtered_connections = []
-    for parent, child in connections:
-        if available_bones is None or (parent in available_bones and child in available_bones):
-            filtered_connections.append((parent, child))
-    
-    # If focusing on a specific category, filter further
+
+    # Keep ALL connections, but categorize them
+    all_connections = connections
+
+    # If focusing on a specific category, filter connections
     if focus_category:
         categories = get_bone_categories()
         if focus_category in categories:
             focus_bones = set(categories[focus_category])
             # Include spine bones as they form the root
             focus_bones.update(categories['Spine'])
-            filtered_connections = [
-                (parent, child) for parent, child in filtered_connections
+            all_connections = [
+                (parent, child) for parent, child in connections
                 if parent in focus_bones or child in focus_bones
             ]
-    
+
     # Create Graphviz digraph
     dot = graphviz.Digraph(comment=title)
     dot.attr(rankdir='TB')  # Top to bottom layout
     dot.attr('node', shape='box', style='rounded,filled', fontsize='10')
     dot.attr('edge', arrowsize='0.5')
-    
+
     # Color scheme for different bone categories
     category_colors = {
         'Spine': '#FF6B6B',
         'Left_Arm': '#4ECDC4',
-        'Right_Arm': '#45B7D1', 
+        'Right_Arm': '#45B7D1',
         'Left_Hand': '#96CEB4',
         'Right_Hand': '#FFEAA7',
         'Left_Leg': '#DDA0DD',
         'Right_Leg': '#98D8C8',
     }
-    
+
     def get_bone_color(bone: FullBodyBoneId) -> str:
         """Get color for a bone based on its category."""
         categories = get_bone_categories()
@@ -266,45 +270,77 @@ def create_graphviz_tree(connections: List[Tuple], available_bones: Set[FullBody
             if bone in bone_list:
                 return category_colors.get(category, '#CCCCCC')
         return '#CCCCCC'
-    
-    def get_bone_shape(bone: FullBodyBoneId) -> str:
-        """Get shape for a bone based on availability."""
+
+    def get_bone_style(bone: FullBodyBoneId) -> tuple[str, str]:
+        """Get style for a bone based on availability."""
         if available_bones is None or bone in available_bones:
-            return 'box'
+            return 'solid', '1.0'  # solid style, full opacity
         else:
-            return 'box,dashed'  # Dashed for missing bones
-    
+            return 'dashed', '0.6'  # dashed style, reduced opacity
+
+    def get_edge_style(parent: FullBodyBoneId, child: FullBodyBoneId) -> tuple[str, str]:
+        """Get edge style based on bone availability."""
+        parent_available = available_bones is None or parent in available_bones
+        child_available = available_bones is None or child in available_bones
+
+        if parent_available and child_available:
+            return 'solid', 'black'  # solid line, black
+        else:
+            return 'dashed', 'red'   # dashed line, red for broken connections
+
     # Add nodes and edges
     nodes_added = set()
-    for parent, child in filtered_connections:
+    for parent, child in all_connections:
         # Add parent node
         if parent not in nodes_added:
+            style, alpha = get_bone_style(parent)
+            color = get_bone_color(parent)
+            # Lighten color for missing bones
+            if style == 'dashed':
+                # Make color lighter by adding transparency effect
+                color += '80'  # Add alpha channel
+
             dot.node(
-                str(parent.value), 
+                str(parent.value),
                 parent.name.replace('FullBody_', '').replace('_', '\n'),
-                fillcolor=get_bone_color(parent),
-                shape=get_bone_shape(parent)
+                fillcolor=color,
+                style=f'rounded,filled,{style}',
+                fontcolor='black' if style == 'solid' else 'gray'
             )
             nodes_added.add(parent)
-        
+
         # Add child node
         if child not in nodes_added:
+            style, alpha = get_bone_style(child)
+            color = get_bone_color(child)
+            # Lighten color for missing bones
+            if style == 'dashed':
+                color += '80'  # Add alpha channel
+
             dot.node(
-                str(child.value), 
+                str(child.value),
                 child.name.replace('FullBody_', '').replace('_', '\n'),
-                fillcolor=get_bone_color(child),
-                shape=get_bone_shape(child)
+                fillcolor=color,
+                style=f'rounded,filled,{style}',
+                fontcolor='black' if style == 'solid' else 'gray'
             )
             nodes_added.add(child)
-        
-        # Add edge
-        dot.edge(str(parent.value), str(child.value))
-    
+
+        # Add edge with appropriate style
+        edge_style, edge_color = get_edge_style(parent, child)
+        dot.edge(
+            str(parent.value),
+            str(child.value),
+            style=edge_style,
+            color=edge_color,
+            penwidth='2' if edge_style == 'solid' else '1'
+        )
+
     # Generate output
     filename = title.lower().replace(' ', '_').replace('/', '_')
     if focus_category:
         filename += f"_{focus_category.lower()}"
-    
+
     try:
         output_path = dot.render(filename, format=output_format, cleanup=True)
         print(f"Generated {title} tree: {output_path}")
@@ -314,71 +350,95 @@ def create_graphviz_tree(connections: List[Tuple], available_bones: Set[FullBody
         return ""
 
 
-def generate_mermaid_diagram(connections: List[Tuple], available_bones: Set[FullBodyBoneId], 
+def generate_mermaid_diagram(connections: List[Tuple], available_bones: Set[FullBodyBoneId],
                            title: str, focus_category: Optional[str] = None) -> str:
-    """Generate a Mermaid diagram for the kinematic tree."""
-    
-    # Filter connections
-    filtered_connections = []
-    for parent, child in connections:
-        if available_bones is None or (parent in available_bones and child in available_bones):
-            filtered_connections.append((parent, child))
-    
-    # If focusing on a specific category, filter further
+    """Generate a Mermaid diagram for the kinematic tree with broken connections."""
+
+    # Keep ALL connections
+    all_connections = connections
+
+    # If focusing on a specific category, filter connections
     if focus_category:
         categories = get_bone_categories()
         if focus_category in categories:
             focus_bones = set(categories[focus_category])
             focus_bones.update(categories['Spine'])  # Include spine
-            filtered_connections = [
-                (parent, child) for parent, child in filtered_connections
+            all_connections = [
+                (parent, child) for parent, child in connections
                 if parent in focus_bones or child in focus_bones
             ]
-    
+
     # Generate Mermaid syntax
     mermaid_lines = [
         f"```mermaid",
         f"graph TD",
         f"    %% {title}",
+        f"    %% Solid lines = complete connections, Dotted lines = broken connections",
     ]
-    
-    # Add connections
-    for parent, child in filtered_connections:
+
+    # Add connections with different styles for broken chains
+    for parent, child in all_connections:
         parent_name = parent.name.replace('FullBody_', '')
         child_name = child.name.replace('FullBody_', '')
-        mermaid_lines.append(f"    {parent.value}[{parent_name}] --> {child.value}[{child_name}]")
-    
-    # Add styling for different categories
+
+        parent_available = available_bones is None or parent in available_bones
+        child_available = available_bones is None or child in available_bones
+
+        if parent_available and child_available:
+            # Solid connection
+            mermaid_lines.append(f"    {parent.value}[{parent_name}] --> {child.value}[{child_name}]")
+        else:
+            # Broken connection - use dotted line
+            mermaid_lines.append(f"    {parent.value}[{parent_name}] -.-> {child.value}[{child_name}]")
+
+    # Add styling for different categories and availability
     categories = get_bone_categories()
-    category_styles = {
-        'Spine': 'fill:#FF6B6B',
-        'Left_Arm': 'fill:#4ECDC4',
-        'Right_Arm': 'fill:#45B7D1',
-        'Left_Hand': 'fill:#96CEB4',
-        'Right_Hand': 'fill:#FFEAA7',
-        'Left_Leg': 'fill:#DDA0DD',
-        'Right_Leg': 'fill:#98D8C8',
+    category_colors = {
+        'Spine': '#FF6B6B',
+        'Left_Arm': '#4ECDC4',
+        'Right_Arm': '#45B7D1',
+        'Left_Hand': '#96CEB4',
+        'Right_Hand': '#FFEAA7',
+        'Left_Leg': '#DDA0DD',
+        'Right_Leg': '#98D8C8',
     }
-    
-    mermaid_lines.append("    %% Styling")
-    for category, bone_list in categories.items():
-        if category in category_styles:
-            style = category_styles[category]
-            for bone in bone_list:
-                if available_bones is None or bone in available_bones:
-                    mermaid_lines.append(f"    style {bone.value} {style}")
-    
+
+    mermaid_lines.append("    %% Styling - Available bones (solid) vs Missing bones (dashed)")
+
+    # Collect all bones that appear in the connections
+    all_bones = set()
+    for parent, child in all_connections:
+        all_bones.add(parent)
+        all_bones.add(child)
+
+    for bone in all_bones:
+        # Get bone category color
+        bone_color = '#CCCCCC'  # default
+        for category, bone_list in categories.items():
+            if bone in bone_list and category in category_colors:
+                bone_color = category_colors[category]
+                break
+
+        # Style based on availability
+        if available_bones is None or bone in available_bones:
+            # Available bone - solid style
+            mermaid_lines.append(f"    style {bone.value} fill:{bone_color},stroke:#333,stroke-width:2px")
+        else:
+            # Missing bone - dashed style with lighter color
+            lighter_color = bone_color + "40"  # Add transparency
+            mermaid_lines.append(f"    style {bone.value} fill:{lighter_color},stroke:#999,stroke-width:1px,stroke-dasharray: 5 5")
+
     mermaid_lines.append("```")
-    
+
     # Save to file
     filename = f"{title.lower().replace(' ', '_').replace('/', '_')}"
     if focus_category:
         filename += f"_{focus_category.lower()}"
     filename += ".md"
-    
+
     with open(filename, 'w') as f:
         f.write('\n'.join(mermaid_lines))
-    
+
     print(f"Generated Mermaid diagram: {filename}")
     return '\n'.join(mermaid_lines)
 
@@ -388,13 +448,13 @@ def create_comparison_matrix():
     openxr_bones = set(FullBodyBoneId)
     vmd_bones = get_available_bones(VMD_TO_FULLBODY_MAPPING)
     fbx_bones = get_available_bones(MIXAMO_TO_FULLBODY_MAPPING)
-    
+
     categories = get_bone_categories()
-    
+
     # Create matrix data
     matrix_data = []
     bone_names = []
-    
+
     for category, bone_list in categories.items():
         for bone in bone_list:
             bone_names.append(f"{category}\n{bone.name.replace('FullBody_', '')}")
@@ -404,38 +464,38 @@ def create_comparison_matrix():
                 1 if bone in fbx_bones else 0,  # FBX
             ]
             matrix_data.append(row)
-    
+
     # Create visualization
     fig, ax = plt.subplots(figsize=(8, 20))
-    
+
     import numpy as np
     matrix = np.array(matrix_data)
-    
+
     # Create heatmap
     im = ax.imshow(matrix, cmap='RdYlGn', aspect='auto', vmin=0, vmax=1)
-    
+
     # Set labels
     ax.set_xticks([0, 1, 2])
     ax.set_xticklabels(['OpenXR', 'VMD', 'FBX'])
     ax.set_yticks(range(len(bone_names)))
     ax.set_yticklabels(bone_names, fontsize=8)
-    
+
     # Add text annotations
     for i in range(len(bone_names)):
         for j in range(3):
             text = '✓' if matrix[i, j] == 1 else '✗'
             color = 'white' if matrix[i, j] == 0 else 'black'
             ax.text(j, i, text, ha='center', va='center', color=color, fontweight='bold')
-    
+
     ax.set_title('Bone Availability Comparison Matrix', fontsize=14, fontweight='bold', pad=20)
-    
+
     # Add legend
     legend_elements = [
         mpatches.Patch(color='green', label='Available'),
         mpatches.Patch(color='red', label='Missing')
     ]
     ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.05, 1))
-    
+
     plt.tight_layout()
     plt.savefig('bone_availability_matrix.png', dpi=300, bbox_inches='tight')
     print("Generated bone availability matrix: bone_availability_matrix.png")
@@ -444,77 +504,118 @@ def create_comparison_matrix():
 
 def main():
     parser = argparse.ArgumentParser(description="Optimal kinematic tree visualization")
-    parser.add_argument("--format", choices=['png', 'svg', 'pdf'], default='png', 
+    parser.add_argument("--format", choices=['png', 'svg', 'pdf'], default='png',
                        help="Output format for Graphviz diagrams")
-    parser.add_argument("--generate-mermaid", action="store_true", 
+    parser.add_argument("--generate-mermaid", action="store_true",
                        help="Generate Mermaid diagrams")
     parser.add_argument("--focus-category", choices=[
         'Spine', 'Left_Arm', 'Right_Arm', 'Left_Hand', 'Right_Hand', 'Left_Leg', 'Right_Leg'
     ], help="Focus on a specific body part category")
-    parser.add_argument("--matrix", action="store_true", 
+    parser.add_argument("--matrix", action="store_true",
                        help="Generate bone availability comparison matrix")
-    
+
     args = parser.parse_args()
-    
+
     print("Optimal Kinematic Tree Visualization")
     print("=" * 40)
-    
+
     # Get bone sets
     openxr_bones = set(FullBodyBoneId)
     vmd_bones = get_available_bones(VMD_TO_FULLBODY_MAPPING)
     fbx_bones = get_available_bones(MIXAMO_TO_FULLBODY_MAPPING)
-    
+
     print(f"OpenXR bones: {len(openxr_bones)}")
     print(f"VMD bones: {len(vmd_bones)} ({len(vmd_bones)/len(openxr_bones)*100:.1f}%)")
     print(f"FBX bones: {len(fbx_bones)} ({len(fbx_bones)/len(openxr_bones)*100:.1f}%)")
-    
+
     if GRAPHVIZ_AVAILABLE:
         # Generate Graphviz trees
         print("\nGenerating Graphviz tree diagrams...")
-        create_graphviz_tree(FULL_BODY_SKELETON_CONNECTIONS, openxr_bones, 
+        create_graphviz_tree(FULL_BODY_SKELETON_CONNECTIONS, openxr_bones,
                            "OpenXR_Complete", args.format, args.focus_category)
-        create_graphviz_tree(FULL_BODY_SKELETON_CONNECTIONS, vmd_bones, 
+        create_graphviz_tree(FULL_BODY_SKELETON_CONNECTIONS, vmd_bones,
                            "VMD_Available", args.format, args.focus_category)
-        create_graphviz_tree(FULL_BODY_SKELETON_CONNECTIONS, fbx_bones, 
+        create_graphviz_tree(FULL_BODY_SKELETON_CONNECTIONS, fbx_bones,
                            "FBX_Available", args.format, args.focus_category)
-    
+
     if args.generate_mermaid:
         # Generate Mermaid diagrams
         print("\nGenerating Mermaid diagrams...")
-        generate_mermaid_diagram(FULL_BODY_SKELETON_CONNECTIONS, openxr_bones, 
+        generate_mermaid_diagram(FULL_BODY_SKELETON_CONNECTIONS, openxr_bones,
                                "OpenXR_Complete", args.focus_category)
-        generate_mermaid_diagram(FULL_BODY_SKELETON_CONNECTIONS, vmd_bones, 
+        generate_mermaid_diagram(FULL_BODY_SKELETON_CONNECTIONS, vmd_bones,
                                "VMD_Available", args.focus_category)
-        generate_mermaid_diagram(FULL_BODY_SKELETON_CONNECTIONS, fbx_bones, 
+        generate_mermaid_diagram(FULL_BODY_SKELETON_CONNECTIONS, fbx_bones,
                                "FBX_Available", args.focus_category)
-    
+
     if args.matrix:
         # Generate comparison matrix
         print("\nGenerating bone availability matrix...")
         create_comparison_matrix()
-    
+
     # Analysis summary
     print("\n" + "=" * 60)
     print("QUICK ANALYSIS SUMMARY")
     print("=" * 60)
-    
+
     missing_vmd = openxr_bones - vmd_bones
     missing_fbx = openxr_bones - fbx_bones
-    
+
     print(f"\nMissing in VMD: {len(missing_vmd)} bones")
     print("Key missing VMD bones:")
     for bone in list(missing_vmd)[:10]:
         print(f"  - {bone.name}")
-    
+
     print(f"\nMissing in FBX: {len(missing_fbx)} bones")
     print("Key missing FBX bones:")
     for bone in list(missing_fbx)[:10]:
         print(f"  - {bone.name}")
-    
+
+    # Analyze broken connections
+    print(f"\nBROKEN KINEMATIC CHAINS:")
+
+    def analyze_broken_connections(bone_set: Set[FullBodyBoneId], format_name: str):
+        broken_connections = []
+        for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
+            parent_available = parent in bone_set
+            child_available = child in bone_set
+            if not (parent_available and child_available):
+                broken_connections.append((parent, child, parent_available, child_available))
+
+        print(f"\n{format_name} broken connections: {len(broken_connections)}")
+
+        # Group by category for better understanding
+        hand_breaks = [conn for conn in broken_connections if 'Hand' in conn[0].name or 'Hand' in conn[1].name]
+        foot_breaks = [conn for conn in broken_connections if 'Foot' in conn[0].name or 'Foot' in conn[1].name]
+        other_breaks = [conn for conn in broken_connections if conn not in hand_breaks and conn not in foot_breaks]
+
+        if hand_breaks:
+            print(f"  Hand chain breaks: {len(hand_breaks)}")
+            for parent, child, p_avail, c_avail in hand_breaks[:5]:  # Show first 5
+                status = f"({parent.name.split('_')[-1]} {'✓' if p_avail else '✗'} → {child.name.split('_')[-1]} {'✓' if c_avail else '✗'})"
+                print(f"    {status}")
+
+        if foot_breaks:
+            print(f"  Foot chain breaks: {len(foot_breaks)}")
+
+        if other_breaks:
+            print(f"  Other breaks: {len(other_breaks)}")
+
+        return broken_connections
+
+    vmd_broken = analyze_broken_connections(vmd_bones, "VMD")
+    fbx_broken = analyze_broken_connections(fbx_bones, "FBX")
+
+    print(f"\nVISUALIZATION LEGEND:")
+    print("- Solid nodes/lines: Available bones and intact connections")
+    print("- Dashed nodes: Missing bones")
+    print("- Dashed/dotted lines: Broken connections (one or both bones missing)")
+    print("- Red lines (Graphviz): Highlight broken kinematic chains")
+
     print(f"\nINTERPOLATION PRIORITIES:")
-    print("1. Hand metacarpals (missing in VMD)")
-    print("2. Foot detail bones (missing in both)")
-    print("3. Scapula and twist bones (missing in both)")
+    print("1. Hand metacarpals (missing in VMD) - breaks finger chains")
+    print("2. Foot detail bones (missing in both) - breaks foot chains")
+    print("3. Scapula and twist bones (missing in both) - affects arm realism")
 
 
 if __name__ == "__main__":
