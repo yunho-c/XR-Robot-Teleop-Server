@@ -20,7 +20,7 @@ import csv
 import os
 from datetime import datetime
 
-from visualize_vmd_body_pose import VMD_TO_FULLBODY_MAPPING
+from visualize_vmd_body_pose import get_active_mapping
 
 from xr_robot_teleop_server import configure_logging
 
@@ -32,6 +32,7 @@ def convert_vmd_to_openxr_csv(
     decimal_precision: int = 3,
     bone_id_as_int: bool = True,
     convert_coords: bool = True,
+    convention: str = "root",
 ):
     """
     Convert VMD CSV data to OpenXR body pose CSV format.
@@ -43,11 +44,13 @@ def convert_vmd_to_openxr_csv(
         decimal_precision: Number of decimal places for values
         bone_id_as_int: Whether to output bone IDs as integers (True) or strings (False)
         convert_coords: Whether to convert Y-up to Z-up coordinates
+        convention: Bone mapping convention ('root', 'tip', or 'mediapipe')
     """
     print(f"Loading VMD data from {input_file}...")
 
     # Read the VMD CSV file
     frame_data = {}
+    active_mapping = get_active_mapping(convention)
 
     try:
         with open(input_file) as f:
@@ -58,12 +61,12 @@ def convert_vmd_to_openxr_csv(
 
                 # Skip unmapped bones or bones mapped to None
                 if (
-                    bone_name not in VMD_TO_FULLBODY_MAPPING
-                    or VMD_TO_FULLBODY_MAPPING[bone_name] is None
+                    bone_name not in active_mapping
+                    or active_mapping[bone_name] is None
                 ):
                     continue
 
-                bone_id = VMD_TO_FULLBODY_MAPPING[bone_name]
+                bone_id = active_mapping[bone_name]
 
                 # Parse position (VMD data appears to be in meters already)
                 loc_x = float(row["loc_x"])
@@ -120,7 +123,7 @@ def convert_vmd_to_openxr_csv(
 
     # Count mapped bones
     mapped_bones = sum(
-        1 for bone_name in VMD_TO_FULLBODY_MAPPING if VMD_TO_FULLBODY_MAPPING[bone_name] is not None
+        1 for bone_id in active_mapping.values() if bone_id is not None
     )
     print(f"Loaded {len(frame_data)} frames with {mapped_bones} mapped bones")
 
@@ -204,6 +207,13 @@ def main():
         action="store_true",
         help="Skip coordinate system conversion from Y-up to Z-up (default: convert)",
     )
+    parser.add_argument(
+        "--convention",
+        type=str,
+        default="root",
+        choices=["root", "tip", "mediapipe"],
+        help="Bone mapping convention: 'root' (default), 'tip' (joints named after bone tips), or 'mediapipe' (for MediaPipe compatibility)",
+    )
 
     args = parser.parse_args()
 
@@ -222,6 +232,9 @@ def main():
         return 1
 
     # Convert the file
+    if args.convention != "root":
+        print(f"Using {args.convention} convention for bone mapping")
+        
     success = convert_vmd_to_openxr_csv(
         input_file=args.input,
         output_file=args.output,
@@ -229,6 +242,7 @@ def main():
         decimal_precision=args.decimal_precision,
         bone_id_as_int=not args.bone_id_as_string,
         convert_coords=not args.no_coord_conversion,
+        convention=args.convention,
     )
 
     return 0 if success else 1

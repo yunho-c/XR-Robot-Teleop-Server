@@ -20,13 +20,13 @@ import csv
 import os
 from datetime import datetime
 
-from visualize_fbx_body_pose import MIXAMO_TO_FULLBODY_MAPPING
+from visualize_fbx_body_pose import get_active_mapping
 
 from xr_robot_teleop_server import configure_logging
 
 
 def convert_fbx_to_openxr_csv(
-    input_file: str, output_file: str, fps: float = 24.0, decimal_precision: int = 3, bone_id_as_int: bool = True
+    input_file: str, output_file: str, fps: float = 24.0, decimal_precision: int = 3, bone_id_as_int: bool = True, use_tip_convention: bool = False
 ):
     """
     Convert FBX CSV data to OpenXR body pose CSV format.
@@ -37,11 +37,13 @@ def convert_fbx_to_openxr_csv(
         fps: Frames per second for time conversion
         decimal_precision: Number of decimal places for values
         bone_id_as_int: Whether to output bone IDs as integers (True) or strings (False)
+        use_tip_convention: If True, use tip convention for hand bone mapping
     """
     print(f"Loading FBX data from {input_file}...")
 
     # Read the FBX CSV file directly (not using parse_csv_data since it only returns positions)
     frame_data = {}
+    active_mapping = get_active_mapping(use_tip_convention)
 
     try:
         with open(input_file) as f:
@@ -50,11 +52,11 @@ def convert_fbx_to_openxr_csv(
                 frame = int(row["frame"])
                 bone_name = row["bone_name"]
 
-                # Skip unmapped bones
-                if bone_name not in MIXAMO_TO_FULLBODY_MAPPING:
+                # Skip unmapped bones or bones mapped to None
+                if bone_name not in active_mapping or active_mapping[bone_name] is None:
                     continue
 
-                bone_id = MIXAMO_TO_FULLBODY_MAPPING[bone_name]
+                bone_id = active_mapping[bone_name]
 
                 # Parse position (convert cm to meters)
                 pos_x = float(row["loc_x"]) / 100.0
@@ -94,7 +96,9 @@ def convert_fbx_to_openxr_csv(
         print("No valid bone data found in input file")
         return False
 
-    print(f"Loaded {len(frame_data)} frames with {len(MIXAMO_TO_FULLBODY_MAPPING)} mapped bones")
+    # Count mapped bones (excluding None values)
+    mapped_bones = sum(1 for bone_id in active_mapping.values() if bone_id is not None)
+    print(f"Loaded {len(frame_data)} frames with {mapped_bones} mapped bones")
 
     # Write output CSV
     print(f"Writing OpenXR CSV data to {output_file}...")
@@ -171,6 +175,11 @@ def main():
         action="store_true",
         help="Output bone IDs as strings instead of integers (default: integers)",
     )
+    parser.add_argument(
+        "--tip-convention",
+        action="store_true",
+        help="Use tip convention for hand bone mapping (joints named after bone tips rather than roots)",
+    )
 
     args = parser.parse_args()
 
@@ -189,12 +198,16 @@ def main():
         return 1
 
     # Convert the file
+    if args.tip_convention:
+        print("Using tip convention for hand bone mapping")
+    
     success = convert_fbx_to_openxr_csv(
         input_file=args.input,
         output_file=args.output,
         fps=args.fps,
         decimal_precision=args.decimal_precision,
         bone_id_as_int=not args.bone_id_as_string,
+        use_tip_convention=args.tip_convention,
     )
 
     return 0 if success else 1
