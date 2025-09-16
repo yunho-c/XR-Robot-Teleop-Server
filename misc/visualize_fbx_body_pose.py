@@ -97,6 +97,54 @@ MIXAMO_TO_FULLBODY_MAPPING = {
     "mixamorig:RightToeBase": FullBodyBoneId.FullBody_RightFootBall,
 }
 
+# Alternative mapping for tip convention (hand bones only)
+# In tip convention, joints are named after the bone segment they terminate (tip of bone)
+# rather than the bone segment they start (root of bone)
+MIXAMO_TO_FULLBODY_MAPPING_TIP_CONVENTION = {
+    # Left hand - tip convention (shift mapping down by one level)
+    "mixamorig:LeftHandThumb1": FullBodyBoneId.FullBody_LeftHandThumbMetacarpal,
+    "mixamorig:LeftHandThumb2": FullBodyBoneId.FullBody_LeftHandThumbProximal,
+    "mixamorig:LeftHandThumb3": FullBodyBoneId.FullBody_LeftHandThumbDistal,
+    "mixamorig:LeftHandThumb4": None,  # No corresponding bone for tip in this scheme
+    "mixamorig:LeftHandIndex1": FullBodyBoneId.FullBody_LeftHandIndexMetacarpal,
+    "mixamorig:LeftHandIndex2": FullBodyBoneId.FullBody_LeftHandIndexProximal,
+    "mixamorig:LeftHandIndex3": FullBodyBoneId.FullBody_LeftHandIndexIntermediate,
+    "mixamorig:LeftHandIndex4": FullBodyBoneId.FullBody_LeftHandIndexDistal,
+    "mixamorig:LeftHandMiddle1": FullBodyBoneId.FullBody_LeftHandMiddleMetacarpal,
+    "mixamorig:LeftHandMiddle2": FullBodyBoneId.FullBody_LeftHandMiddleProximal,
+    "mixamorig:LeftHandMiddle3": FullBodyBoneId.FullBody_LeftHandMiddleIntermediate,
+    "mixamorig:LeftHandMiddle4": FullBodyBoneId.FullBody_LeftHandMiddleDistal,
+    "mixamorig:LeftHandRing1": FullBodyBoneId.FullBody_LeftHandRingMetacarpal,
+    "mixamorig:LeftHandRing2": FullBodyBoneId.FullBody_LeftHandRingProximal,
+    "mixamorig:LeftHandRing3": FullBodyBoneId.FullBody_LeftHandRingIntermediate,
+    "mixamorig:LeftHandRing4": FullBodyBoneId.FullBody_LeftHandRingDistal,
+    "mixamorig:LeftHandPinky1": FullBodyBoneId.FullBody_LeftHandLittleMetacarpal,
+    "mixamorig:LeftHandPinky2": FullBodyBoneId.FullBody_LeftHandLittleProximal,
+    "mixamorig:LeftHandPinky3": FullBodyBoneId.FullBody_LeftHandLittleIntermediate,
+    "mixamorig:LeftHandPinky4": FullBodyBoneId.FullBody_LeftHandLittleDistal,
+    # Right hand - tip convention (shift mapping down by one level)
+    "mixamorig:RightHandThumb1": FullBodyBoneId.FullBody_RightHandThumbMetacarpal,
+    "mixamorig:RightHandThumb2": FullBodyBoneId.FullBody_RightHandThumbProximal,
+    "mixamorig:RightHandThumb3": FullBodyBoneId.FullBody_RightHandThumbDistal,
+    "mixamorig:RightHandThumb4": None,  # No corresponding bone for tip in this scheme
+    "mixamorig:RightHandIndex1": FullBodyBoneId.FullBody_RightHandIndexMetacarpal,
+    "mixamorig:RightHandIndex2": FullBodyBoneId.FullBody_RightHandIndexProximal,
+    "mixamorig:RightHandIndex3": FullBodyBoneId.FullBody_RightHandIndexIntermediate,
+    "mixamorig:RightHandIndex4": FullBodyBoneId.FullBody_RightHandIndexDistal,
+    "mixamorig:RightHandMiddle1": FullBodyBoneId.FullBody_RightHandMiddleMetacarpal,
+    "mixamorig:RightHandMiddle2": FullBodyBoneId.FullBody_RightHandMiddleProximal,
+    "mixamorig:RightHandMiddle3": FullBodyBoneId.FullBody_RightHandMiddleIntermediate,
+    "mixamorig:RightHandMiddle4": FullBodyBoneId.FullBody_RightHandMiddleDistal,
+    "mixamorig:RightHandRing1": FullBodyBoneId.FullBody_RightHandRingMetacarpal,
+    "mixamorig:RightHandRing2": FullBodyBoneId.FullBody_RightHandRingProximal,
+    "mixamorig:RightHandRing3": FullBodyBoneId.FullBody_RightHandRingIntermediate,
+    "mixamorig:RightHandRing4": FullBodyBoneId.FullBody_RightHandRingDistal,
+    "mixamorig:RightHandPinky1": FullBodyBoneId.FullBody_RightHandLittleMetacarpal,
+    "mixamorig:RightHandPinky2": FullBodyBoneId.FullBody_RightHandLittleProximal,
+    "mixamorig:RightHandPinky3": FullBodyBoneId.FullBody_RightHandLittleIntermediate,
+    "mixamorig:RightHandPinky4": FullBodyBoneId.FullBody_RightHandLittleDistal,
+}
+
 
 class BoneData:
     """Represents bone position and rotation data."""
@@ -106,17 +154,30 @@ class BoneData:
         self.position = position
 
 
-def parse_csv_data(csv_file: str) -> dict[int, list[BoneData]]:
+def get_active_mapping(use_tip_convention: bool = False) -> dict:
+    """Get the appropriate bone mapping based on convention."""
+    if use_tip_convention:
+        # Merge main mapping with tip convention overrides (hand bones only)
+        mapping = MIXAMO_TO_FULLBODY_MAPPING.copy()
+        mapping.update(MIXAMO_TO_FULLBODY_MAPPING_TIP_CONVENTION)
+        return mapping
+    else:
+        return MIXAMO_TO_FULLBODY_MAPPING
+
+
+def parse_csv_data(csv_file: str, use_tip_convention: bool = False) -> dict[int, list[BoneData]]:
     """
     Parse CSV data and return frame-indexed bone data.
 
     Args:
         csv_file: Path to the CSV file
+        use_tip_convention: Whether to use tip convention for hand bones
 
     Returns:
         Dictionary mapping frame numbers to lists of BoneData
     """
     frame_data = {}
+    active_mapping = get_active_mapping(use_tip_convention)
 
     try:
         with open(csv_file) as f:
@@ -125,11 +186,11 @@ def parse_csv_data(csv_file: str) -> dict[int, list[BoneData]]:
                 frame = int(row["frame"])
                 bone_name = row["bone_name"]
 
-                # Skip unmapped bones
-                if bone_name not in MIXAMO_TO_FULLBODY_MAPPING:
+                # Skip unmapped bones or bones mapped to None
+                if bone_name not in active_mapping or active_mapping[bone_name] is None:
                     continue
 
-                bone_id = MIXAMO_TO_FULLBODY_MAPPING[bone_name]
+                bone_id = active_mapping[bone_name]
 
                 # Parse position (convert to meters and adjust coordinate system)
                 # Blender uses Z-up, right-handed. Convert to the expected coordinate system.
@@ -155,10 +216,89 @@ def parse_csv_data(csv_file: str) -> dict[int, list[BoneData]]:
     return frame_data
 
 
-def visualize_frame(rr, frame_data: list[BoneData], frame_number: int):
-    """Visualize a single frame of bone data."""
+def build_skeleton_tree():
+    """Build a tree structure from skeleton connections for traversal."""
+    children = {}  # parent_id -> [child_ids]
+    for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
+        if parent not in children:
+            children[parent] = []
+        children[parent].append(child)
+    return children
+
+
+def find_recovered_connections(available_bones: set[FullBodyBoneId]):
+    """
+    Find recovered connections that bypass missing bones.
+    
+    Returns:
+        List of (parent, child, is_recovered) tuples where is_recovered indicates
+        if this connection bypasses missing intermediate bones.
+    """
+    children_map = build_skeleton_tree()
+    connections = []
+    
+    def find_available_descendants(bone_id: FullBodyBoneId, visited: set = None) -> list[FullBodyBoneId]:
+        """Recursively find all available descendant bones."""
+        if visited is None:
+            visited = set()
+        
+        if bone_id in visited:
+            return []
+        
+        visited.add(bone_id)
+        descendants = []
+        
+        if bone_id in children_map:
+            for child in children_map[bone_id]:
+                if child in available_bones:
+                    descendants.append(child)
+                else:
+                    # Child is missing, look deeper
+                    descendants.extend(find_available_descendants(child, visited))
+        
+        return descendants
+    
+    # Process each original connection
+    for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
+        parent_available = parent in available_bones
+        child_available = child in available_bones
+        
+        if parent_available and child_available:
+            # Original connection is intact
+            connections.append((parent, child, False))
+        elif parent_available and not child_available:
+            # Direct child is missing, find available descendants
+            descendants = find_available_descendants(child)
+            for descendant in descendants:
+                connections.append((parent, descendant, True))
+    
+    return connections
+
+
+def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_recovered: bool = True):
+    """Visualize a single frame of bone data with separate original and recovered connections."""
     if not frame_data:
         return
+
+    # Get available bones from the frame data
+    available_bones = {bone.id for bone in frame_data}
+    
+    # Get original connections (both bones available)
+    original_connections = []
+    for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
+        if parent in available_bones and child in available_bones:
+            original_connections.append((parent, child))
+    
+    # Get recovered connections (bypass missing bones)
+    recovered_connections = []
+    if show_recovered:
+        recovered_connections = find_recovered_connections(available_bones)
+        # Filter out the original connections to keep only the recovered ones
+        original_set = set(original_connections)
+        recovered_connections = [(p, c) for p, c, is_recovered in recovered_connections 
+                               if is_recovered and (p, c) not in original_set]
+    
+    print(f"Frame {frame_number}: {len(original_connections)} original + {len(recovered_connections)} recovered connections")
 
     positions = []
     keypoint_ids = []
@@ -170,6 +310,7 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int):
     # Set timestamp for this frame
     rr.set_time_sequence("frame", frame_number)
 
+    # Log bone points
     rr.log(
         "world/user/bones",
         rr.Points3D(
@@ -179,6 +320,43 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int):
             radii=0.01,
         ),
     )
+    
+    # Create position lookup for line drawing
+    bone_positions = {bone.id: bone.position for bone in frame_data}
+    
+    # Log original connections (green lines)
+    if original_connections:
+        original_lines = []
+        for parent, child in original_connections:
+            if parent in bone_positions and child in bone_positions:
+                original_lines.append([bone_positions[parent], bone_positions[child]])
+        
+        if original_lines:
+            rr.log(
+                "world/user/skeleton_original",
+                rr.LineStrips3D(
+                    strips=original_lines,
+                    colors=[[0, 200, 0, 255]],  # Green for original connections
+                    radii=[0.005],
+                ),
+            )
+    
+    # Log recovered connections (light blue lines)
+    if show_recovered and recovered_connections:
+        recovered_lines = []
+        for parent, child in recovered_connections:
+            if parent in bone_positions and child in bone_positions:
+                recovered_lines.append([bone_positions[parent], bone_positions[child]])
+        
+        if recovered_lines:
+            rr.log(
+                "world/user/skeleton_recovered", 
+                rr.LineStrips3D(
+                    strips=recovered_lines,
+                    colors=[[135, 206, 250, 200]],  # Light blue for recovered connections, slightly transparent
+                    radii=[0.003],
+                ),
+            )
 
 
 def main():
@@ -193,6 +371,12 @@ def main():
     parser.add_argument(
         "--fps", type=float, default=30.0, help="Frames per second for animation (default: 30)"
     )
+    parser.add_argument("--show-recovered", action="store_true", default=True,
+                       help="Show recovered connections that bypass missing bones (default: True)")
+    parser.add_argument("--no-recovered", dest="show_recovered", action="store_false",
+                       help="Hide recovered connections, show only original intact connections")
+    parser.add_argument("--tip-convention", action="store_true", default=False,
+                       help="Use tip convention for hand bones (joints named after bone tip rather than root)")
     parser.add_argument(
         "--log-level",
         type=str,
@@ -206,7 +390,9 @@ def main():
 
     # Parse CSV data
     print(f"Loading pose data from {args.file}...")
-    frame_data = parse_csv_data(args.file)
+    convention_str = "tip" if args.tip_convention else "root"
+    print(f"Using {convention_str} convention for hand bones")
+    frame_data = parse_csv_data(args.file, args.tip_convention)
 
     if not frame_data:
         print("No valid pose data found!")
@@ -273,7 +459,8 @@ def main():
         target_frame = args.frame if args.frame is not None else 1
         if target_frame in frame_data:
             print(f"Visualizing frame {target_frame}")
-            visualize_frame(rr, frame_data[target_frame], target_frame)
+            print(f"Connection recovery: {'enabled' if args.show_recovered else 'disabled'}")
+            visualize_frame(rr, frame_data[target_frame], target_frame, args.show_recovered)
         else:
             print(f"Frame {target_frame} not found. Available frames: {sorted(frame_data.keys())}")
 

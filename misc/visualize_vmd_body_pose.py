@@ -100,6 +100,85 @@ VMD_TO_FULLBODY_MAPPING = {
     "足ＩＫ先.R": None,
 }
 
+# Alternative mapping for TODO
+# TODO: write explanation (it's for SEW-Mimic proj)
+VMD_TO_FULLBODY_MAPPING_MEDIAPIPE_CONVENTION = {
+    # Left hand - TODO
+    "親指２.L": FullBodyBoneId.FullBody_LeftHandThumbTip,
+    "人指２.L": FullBodyBoneId.FullBody_LeftHandIndexTip,
+    "中指２.L": FullBodyBoneId.FullBody_LeftHandMiddleTip,
+    "薬指２.L": FullBodyBoneId.FullBody_LeftHandRingTip,
+    "小指２.L": FullBodyBoneId.FullBody_LeftHandLittleTip,
+    # Right hand - TODO
+    "親指２.R": FullBodyBoneId.FullBody_RightHandThumbTip,
+    "人指２.R": FullBodyBoneId.FullBody_RightHandIndexTip,
+    "中指２.R": FullBodyBoneId.FullBody_RightHandMiddleTip,
+    "薬指２.R": FullBodyBoneId.FullBody_RightHandRingTip,
+    "小指２.R": FullBodyBoneId.FullBody_RightHandLittleTip,
+}
+
+# Alternative mapping for tip convention (hand bones only)
+# In tip convention, joints are named after the bone segment they terminate (tip of bone)
+# rather than the bone segment they start (root of bone)
+VMD_TO_FULLBODY_MAPPING_TIP_CONVENTION = {
+    # Left hand - tip convention (shift mapping down by one level)
+    "親指０.L": None,  # Skip metacarpal in VMD tip convention
+    "親指１.L": FullBodyBoneId.FullBody_LeftHandThumbMetacarpal,
+    "親指２.L": FullBodyBoneId.FullBody_LeftHandThumbProximal,
+    "人指０.L": FullBodyBoneId.FullBody_LeftHandIndexMetacarpal,
+    "人指１.L": FullBodyBoneId.FullBody_LeftHandIndexProximal,
+    "人指２.L": FullBodyBoneId.FullBody_LeftHandIndexIntermediate,
+    "中指０.L": FullBodyBoneId.FullBody_LeftHandMiddleMetacarpal,
+    "中指１.L": FullBodyBoneId.FullBody_LeftHandMiddleProximal,
+    "中指２.L": FullBodyBoneId.FullBody_LeftHandMiddleIntermediate,
+    "薬指０.L": FullBodyBoneId.FullBody_LeftHandRingMetacarpal,
+    "薬指１.L": FullBodyBoneId.FullBody_LeftHandRingProximal,
+    "薬指２.L": FullBodyBoneId.FullBody_LeftHandRingIntermediate,
+    "小指０.L": FullBodyBoneId.FullBody_LeftHandLittleMetacarpal,
+    "小指１.L": FullBodyBoneId.FullBody_LeftHandLittleProximal,
+    "小指２.L": FullBodyBoneId.FullBody_LeftHandLittleIntermediate,
+    # Right hand - tip convention (shift mapping down by one level)
+    "親指０.R": None,  # Skip metacarpal in VMD tip convention
+    "親指１.R": FullBodyBoneId.FullBody_RightHandThumbMetacarpal,
+    "親指２.R": FullBodyBoneId.FullBody_RightHandThumbProximal,
+    "人指０.R": FullBodyBoneId.FullBody_RightHandIndexMetacarpal,
+    "人指１.R": FullBodyBoneId.FullBody_RightHandIndexProximal,
+    "人指２.R": FullBodyBoneId.FullBody_RightHandIndexIntermediate,
+    "中指０.R": FullBodyBoneId.FullBody_RightHandMiddleMetacarpal,
+    "中指１.R": FullBodyBoneId.FullBody_RightHandMiddleProximal,
+    "中指２.R": FullBodyBoneId.FullBody_RightHandMiddleIntermediate,
+    "薬指０.R": FullBodyBoneId.FullBody_RightHandRingMetacarpal,
+    "薬指１.R": FullBodyBoneId.FullBody_RightHandRingProximal,
+    "薬指２.R": FullBodyBoneId.FullBody_RightHandRingIntermediate,
+    "小指０.R": FullBodyBoneId.FullBody_RightHandLittleMetacarpal,
+    "小指１.R": FullBodyBoneId.FullBody_RightHandLittleProximal,
+    "小指２.R": FullBodyBoneId.FullBody_RightHandLittleIntermediate,
+}
+
+
+def get_active_mapping(convention: str) -> dict[str, FullBodyBoneId | None]:
+    """
+    Get the active bone mapping based on convention choice.
+
+    Args:
+        convention: Convention to use - 'root', 'tip', or 'mediapipe'
+
+    Returns:
+        Dictionary mapping VMD bone names to FullBodyBoneId
+    """
+    if convention == "tip":
+        # Start with standard mapping and update with tip convention overrides
+        mapping = VMD_TO_FULLBODY_MAPPING.copy()
+        mapping.update(VMD_TO_FULLBODY_MAPPING_TIP_CONVENTION)
+        return mapping
+    elif convention == "mediapipe":
+        # Start with standard mapping and update with mediapipe convention overrides
+        mapping = VMD_TO_FULLBODY_MAPPING.copy()
+        mapping.update(VMD_TO_FULLBODY_MAPPING_MEDIAPIPE_CONVENTION)
+        return mapping
+    else:  # convention == "root"
+        return VMD_TO_FULLBODY_MAPPING
+
 
 class BoneData:
     """Represents bone position and rotation data."""
@@ -109,17 +188,19 @@ class BoneData:
         self.position = position
 
 
-def parse_csv_data(csv_file: str) -> dict[int, list[BoneData]]:
+def parse_csv_data(csv_file: str, convention: str = "root") -> dict[int, list[BoneData]]:
     """
     Parse CSV data and return frame-indexed bone data.
 
     Args:
         csv_file: Path to the CSV file
+        convention: Convention to use - 'root', 'tip', or 'mediapipe'
 
     Returns:
         Dictionary mapping frame numbers to lists of BoneData
     """
     frame_data = {}
+    active_mapping = get_active_mapping(convention)
 
     try:
         with open(csv_file) as f:
@@ -130,12 +211,12 @@ def parse_csv_data(csv_file: str) -> dict[int, list[BoneData]]:
 
                 # Skip unmapped bones or bones mapped to None
                 if (
-                    bone_name not in VMD_TO_FULLBODY_MAPPING
-                    or VMD_TO_FULLBODY_MAPPING[bone_name] is None
+                    bone_name not in active_mapping
+                    or active_mapping[bone_name] is None
                 ):
                     continue
 
-                bone_id = VMD_TO_FULLBODY_MAPPING[bone_name]
+                bone_id = active_mapping[bone_name]
 
                 # Parse position (VMD data appears to be in meters already)
                 # VMD (exported via Blender) uses Z-up coordinate system
@@ -160,10 +241,89 @@ def parse_csv_data(csv_file: str) -> dict[int, list[BoneData]]:
     return frame_data
 
 
-def visualize_frame(rr, frame_data: list[BoneData], frame_number: int):
-    """Visualize a single frame of bone data."""
+def build_skeleton_tree():
+    """Build a tree structure from skeleton connections for traversal."""
+    children = {}  # parent_id -> [child_ids]
+    for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
+        if parent not in children:
+            children[parent] = []
+        children[parent].append(child)
+    return children
+
+
+def find_recovered_connections(available_bones: set[FullBodyBoneId]):
+    """
+    Find recovered connections that bypass missing bones.
+
+    Returns:
+        List of (parent, child, is_recovered) tuples where is_recovered indicates
+        if this connection bypasses missing intermediate bones.
+    """
+    children_map = build_skeleton_tree()
+    connections = []
+
+    def find_available_descendants(bone_id: FullBodyBoneId, visited: set = None) -> list[FullBodyBoneId]:
+        """Recursively find all available descendant bones."""
+        if visited is None:
+            visited = set()
+
+        if bone_id in visited:
+            return []
+
+        visited.add(bone_id)
+        descendants = []
+
+        if bone_id in children_map:
+            for child in children_map[bone_id]:
+                if child in available_bones:
+                    descendants.append(child)
+                else:
+                    # Child is missing, look deeper
+                    descendants.extend(find_available_descendants(child, visited))
+
+        return descendants
+
+    # Process each original connection
+    for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
+        parent_available = parent in available_bones
+        child_available = child in available_bones
+
+        if parent_available and child_available:
+            # Original connection is intact
+            connections.append((parent, child, False))
+        elif parent_available and not child_available:
+            # Direct child is missing, find available descendants
+            descendants = find_available_descendants(child)
+            for descendant in descendants:
+                connections.append((parent, descendant, True))
+
+    return connections
+
+
+def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_recovered: bool = True):
+    """Visualize a single frame of bone data with separate original and recovered connections."""
     if not frame_data:
         return
+
+    # Get available bones from the frame data
+    available_bones = {bone.id for bone in frame_data}
+
+    # Get original connections (both bones available)
+    original_connections = []
+    for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
+        if parent in available_bones and child in available_bones:
+            original_connections.append((parent, child))
+
+    # Get recovered connections (bypass missing bones)
+    recovered_connections = []
+    if show_recovered:
+        recovered_connections = find_recovered_connections(available_bones)
+        # Filter out the original connections to keep only the recovered ones
+        original_set = set(original_connections)
+        recovered_connections = [(p, c) for p, c, is_recovered in recovered_connections
+                               if is_recovered and (p, c) not in original_set]
+
+    print(f"Frame {frame_number}: {len(original_connections)} original + {len(recovered_connections)} recovered connections")
 
     positions = []
     keypoint_ids = []
@@ -175,6 +335,7 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int):
     # Set timestamp for this frame
     rr.set_time_sequence("frame", frame_number)
 
+    # Log bone points
     rr.log(
         "world/user/bones",
         rr.Points3D(
@@ -184,6 +345,43 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int):
             radii=0.01,
         ),
     )
+
+    # Create position lookup for line drawing
+    bone_positions = {bone.id: bone.position for bone in frame_data}
+
+    # Log original connections (green lines)
+    if original_connections:
+        original_lines = []
+        for parent, child in original_connections:
+            if parent in bone_positions and child in bone_positions:
+                original_lines.append([bone_positions[parent], bone_positions[child]])
+
+        if original_lines:
+            rr.log(
+                "world/user/skeleton_original",
+                rr.LineStrips3D(
+                    strips=original_lines,
+                    colors=[[0, 200, 0, 255]],  # Green for original connections
+                    radii=[0.005],
+                ),
+            )
+
+    # Log recovered connections (light blue lines)
+    if show_recovered and recovered_connections:
+        recovered_lines = []
+        for parent, child in recovered_connections:
+            if parent in bone_positions and child in bone_positions:
+                recovered_lines.append([bone_positions[parent], bone_positions[child]])
+
+        if recovered_lines:
+            rr.log(
+                "world/user/skeleton_recovered",
+                rr.LineStrips3D(
+                    strips=recovered_lines,
+                    colors=[[135, 206, 250, 200]],  # Light blue for recovered connections, slightly transparent
+                    radii=[0.003],
+                ),
+            )
 
 
 def main():
@@ -198,6 +396,14 @@ def main():
     parser.add_argument(
         "--fps", type=float, default=30.0, help="Frames per second for animation (default: 30)"
     )
+    parser.add_argument("--show-recovered", action="store_true", default=True,
+                       help="Show recovered connections that bypass missing bones (default: True)")
+    parser.add_argument("--no-recovered", dest="show_recovered", action="store_false",
+                       help="Hide recovered connections, show only original intact connections")
+    parser.add_argument("--convention", type=str, default="root",
+                       choices=["root", "tip", "mediapipe"],
+                       help="Bone mapping convention: 'root' (default), 'tip' (joints named after bone tips), "
+                            "or 'mediapipe' (for MediaPipe compatibility)")
     parser.add_argument(
         "--log-level",
         type=str,
@@ -211,7 +417,9 @@ def main():
 
     # Parse CSV data
     print(f"Loading pose data from {args.file}...")
-    frame_data = parse_csv_data(args.file)
+    if args.convention != "root":
+        print(f"Using {args.convention} convention for bone mapping")
+    frame_data = parse_csv_data(args.file, args.convention)
 
     if not frame_data:
         print("No valid pose data found!")
@@ -278,7 +486,8 @@ def main():
         target_frame = args.frame if args.frame is not None else 1
         if target_frame in frame_data:
             print(f"Visualizing frame {target_frame}")
-            visualize_frame(rr, frame_data[target_frame], target_frame)
+            print(f"Connection recovery: {'enabled' if args.show_recovered else 'disabled'}")
+            visualize_frame(rr, frame_data[target_frame], target_frame, args.show_recovered)
         else:
             print(f"Frame {target_frame} not found. Available frames: {sorted(frame_data.keys())}")
 
