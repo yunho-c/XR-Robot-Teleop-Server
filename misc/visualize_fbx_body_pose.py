@@ -1,4 +1,3 @@
-
 """
 Visualizes body pose data from a static CSV file (exported from FBX via Blender).
 
@@ -34,17 +33,14 @@ MIXAMO_TO_FULLBODY_MAPPING = {
     "mixamorig:Spine2": FullBodyBoneId.FullBody_SpineUpper,
     "mixamorig:Neck": FullBodyBoneId.FullBody_Neck,
     "mixamorig:Head": FullBodyBoneId.FullBody_Head,
-
     # Left arm
     "mixamorig:LeftShoulder": FullBodyBoneId.FullBody_LeftShoulder,
     "mixamorig:LeftArm": FullBodyBoneId.FullBody_LeftArmUpper,
     "mixamorig:LeftForeArm": FullBodyBoneId.FullBody_LeftArmLower,
-
     # Right arm
     "mixamorig:RightShoulder": FullBodyBoneId.FullBody_RightShoulder,
     "mixamorig:RightArm": FullBodyBoneId.FullBody_RightArmUpper,
     "mixamorig:RightForeArm": FullBodyBoneId.FullBody_RightArmLower,
-
     # Left hand
     "mixamorig:LeftHand": FullBodyBoneId.FullBody_LeftHandWrist,
     "mixamorig:LeftHandThumb1": FullBodyBoneId.FullBody_LeftHandThumbMetacarpal,
@@ -67,7 +63,6 @@ MIXAMO_TO_FULLBODY_MAPPING = {
     "mixamorig:LeftHandPinky2": FullBodyBoneId.FullBody_LeftHandLittleIntermediate,
     "mixamorig:LeftHandPinky3": FullBodyBoneId.FullBody_LeftHandLittleDistal,
     "mixamorig:LeftHandPinky4": FullBodyBoneId.FullBody_LeftHandLittleTip,
-
     # Right hand
     "mixamorig:RightHand": FullBodyBoneId.FullBody_RightHandWrist,
     "mixamorig:RightHandThumb1": FullBodyBoneId.FullBody_RightHandThumbMetacarpal,
@@ -90,13 +85,11 @@ MIXAMO_TO_FULLBODY_MAPPING = {
     "mixamorig:RightHandPinky2": FullBodyBoneId.FullBody_RightHandLittleIntermediate,
     "mixamorig:RightHandPinky3": FullBodyBoneId.FullBody_RightHandLittleDistal,
     "mixamorig:RightHandPinky4": FullBodyBoneId.FullBody_RightHandLittleTip,
-
     # Left leg
     "mixamorig:LeftUpLeg": FullBodyBoneId.FullBody_LeftUpperLeg,
     "mixamorig:LeftLeg": FullBodyBoneId.FullBody_LeftLowerLeg,
     "mixamorig:LeftFoot": FullBodyBoneId.FullBody_LeftFootAnkle,
     "mixamorig:LeftToeBase": FullBodyBoneId.FullBody_LeftFootBall,
-
     # Right leg
     "mixamorig:RightUpLeg": FullBodyBoneId.FullBody_RightUpperLeg,
     "mixamorig:RightLeg": FullBodyBoneId.FullBody_RightLowerLeg,
@@ -107,6 +100,7 @@ MIXAMO_TO_FULLBODY_MAPPING = {
 
 class BoneData:
     """Represents bone position and rotation data."""
+
     def __init__(self, bone_id: FullBodyBoneId, position: tuple[float, float, float]):
         self.id = bone_id
         self.position = position
@@ -128,8 +122,8 @@ def parse_csv_data(csv_file: str) -> dict[int, list[BoneData]]:
         with open(csv_file) as f:
             reader = csv.DictReader(f)
             for row in reader:
-                frame = int(row['frame'])
-                bone_name = row['bone_name']
+                frame = int(row["frame"])
+                bone_name = row["bone_name"]
 
                 # Skip unmapped bones
                 if bone_name not in MIXAMO_TO_FULLBODY_MAPPING:
@@ -139,9 +133,9 @@ def parse_csv_data(csv_file: str) -> dict[int, list[BoneData]]:
 
                 # Parse position (convert to meters and adjust coordinate system)
                 # Blender uses Z-up, right-handed. Convert to the expected coordinate system.
-                loc_x = float(row['loc_x']) / 100.0  # Convert cm to meters
-                loc_y = float(row['loc_y']) / 100.0
-                loc_z = float(row['loc_z']) / 100.0
+                loc_x = float(row["loc_x"]) / 100.0  # Convert cm to meters
+                loc_y = float(row["loc_y"]) / 100.0
+                loc_z = float(row["loc_z"]) / 100.0
 
                 # Blender uses Z-up. Good!
                 position = (loc_x, loc_y, loc_z)
@@ -182,7 +176,7 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int):
             positions=positions,
             keypoint_ids=keypoint_ids,
             class_ids=SkeletonType.FullBody.value,
-            radii=0.02,  # Slightly larger for better visibility
+            radii=0.01,
         ),
     )
 
@@ -190,26 +184,20 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int):
 def main():
     parser = argparse.ArgumentParser(description="Visualize FBX-exported body pose data")
     parser.add_argument(
-        "--file",
-        type=str,
-        required=True,
-        help="Path to the CSV file containing pose data"
+        "--file", type=str, required=True, help="Path to the CSV file containing pose data"
     )
     parser.add_argument(
-        "--frame",
-        type=int,
-        help="Specific frame to visualize (if not provided, shows frame 1)"
+        "--frame", type=int, help="Specific frame to visualize (if not provided, shows frame 1)"
     )
+    parser.add_argument("--animate", action="store_true", help="Animate through all frames")
     parser.add_argument(
-        "--animate",
-        action="store_true",
-        help="Animate through all frames"
+        "--fps", type=float, default=30.0, help="Frames per second for animation (default: 30)"
     )
     parser.add_argument(
         "--log-level",
         type=str,
         default="INFO",
-        help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+        help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
     args = parser.parse_args()
 
@@ -273,10 +261,11 @@ def main():
         print("Animating through frames... Press Ctrl+C to stop")
         try:
             sorted_frames = sorted(frame_data.keys())
+            sleep_time = 1.0 / args.fps
             while True:
                 for frame_num in sorted_frames:
                     visualize_frame(rr, frame_data[frame_num], frame_num)
-                    time.sleep(0.1)  # 10 FPS
+                    time.sleep(sleep_time)
         except KeyboardInterrupt:
             print("\nAnimation stopped")
     else:
