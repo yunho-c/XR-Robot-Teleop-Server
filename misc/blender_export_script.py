@@ -1,0 +1,118 @@
+"""
+NOTE: This is meant to be invoked from inside of Blender, using its `Scripting` workspace — for now.
+"""
+
+import bpy
+import csv
+import os
+
+# --- YOU ONLY NEED TO EDIT THESE TWO LINES ---
+
+# 1. The exact name of your armature object in Blender
+ARMATURE_NAME = "Nacks mmd after jiko_arm"
+
+# 2. The full path where you want to save the CSV file.
+#    On macOS/Linux, it looks like: "/Users/yourname/Desktop/pose_data.csv"
+#    On Windows, it looks like: "C:/Users/yourname/Desktop/pose_data.csv"
+#    (NOTE: Use forward slashes `/` even on Windows for Python)
+CSV_FILEPATH = "/Users/yunhocho/Downloads/vmd_pose_data.csv"
+
+# --- END OF EDITABLE SECTION ---
+
+
+def export_armature_pose_data():
+    """
+    Exports the pose data of a specified armature to a CSV file.
+    It iterates through each frame of the animation and records the
+    location, rotation (quaternion), and scale for each pose bone.
+    """
+    # Find the armature object in the scene
+    armature_obj = bpy.data.objects.get(ARMATURE_NAME)
+
+    # --- VALIDATION ---
+    if not armature_obj or armature_obj.type != 'ARMATURE':
+        print(f"Error: Armature object '{ARMATURE_NAME}' not found.")
+        return
+
+    if not armature_obj.animation_data or not armature_obj.animation_data.action:
+        print(f"Error: Armature '{ARMATURE_NAME}' has no animation data.")
+        return
+
+    # Check if the output directory exists
+    output_dir = os.path.dirname(CSV_FILEPATH)
+    if not os.path.exists(output_dir):
+        print(f"Error: Output directory does not exist: {output_dir}")
+        print("Please create the folder or correct the CSV_FILEPATH.")
+        return
+
+    print(f"Starting export for armature: '{ARMATURE_NAME}'")
+    print(f"Output file will be: '{CSV_FILEPATH}'")
+
+    # --- CSV SETUP ---
+    # Define the header for our CSV file
+    header = [
+        'frame', 'bone_name',
+        'loc_x', 'loc_y', 'loc_z',
+        'rot_w', 'rot_x', 'rot_y', 'rot_z',
+        'scale_x', 'scale_y', 'scale_z'
+    ]
+
+    # Get the frame range from the scene's timeline
+    scene = bpy.context.scene
+    start_frame = int(scene.frame_start)
+    end_frame = int(scene.frame_end)
+
+    # Store the original frame to return to it later
+    original_frame = scene.frame_current
+
+    try:
+        # Open the file for writing
+        with open(CSV_FILEPATH, 'w', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            csv_writer.writerow(header)
+
+            # --- DATA EXPORT LOOP ---
+            # Loop through every frame in the scene's range
+            for frame in range(start_frame, end_frame + 1):
+                # Go to the specific frame
+                scene.frame_set(frame)
+
+                # Update the dependency graph for the new frame
+                bpy.context.view_layer.update()
+
+                # Loop through each pose bone in the armature
+                for pbone in armature_obj.pose.bones:
+                    # Get the final transformation matrix in object space
+                    final_matrix = pbone.matrix
+
+                    # Decompose the matrix into location, rotation, and scale
+                    loc, rot, scale = final_matrix.decompose()
+
+                    # Create a row with the data
+                    row = [
+                        frame, pbone.name,
+                        loc.x, loc.y, loc.z,
+                        rot.w, rot.x, rot.y, rot.z,
+                        scale.x, scale.y, scale.z
+                    ]
+                    # Write the row to the CSV file
+                    csv_writer.writerow(row)
+
+                # Optional: print progress to the system console
+                if frame % 20 == 0:
+                    print(f"Processed frame {frame}/{end_frame}...")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        # Return to the original frame when the script is done or fails
+        scene.frame_set(original_frame)
+
+    print(f"\nExport finished successfully!")
+    print(f"Data for frames {start_frame} to {end_frame} saved.")
+
+
+# --- SCRIPT EXECUTION ---
+if __name__ == "__main__":
+    export_armature_pose_data()
+
