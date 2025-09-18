@@ -357,14 +357,17 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
                 original_lines.append([bone_positions[parent], bone_positions[child]])
 
         if original_lines:
-            rr.log(
-                "world/user/skeleton_original",
-                rr.LineStrips3D(
-                    strips=original_lines,
-                    colors=[[0, 200, 0, 255]],  # Green for original connections
-                    radii=[0.005],
-                ),
-            )
+            # rr.log(
+            #     "world/user/skeleton_original",
+            #     rr.LineStrips3D(
+            #         strips=original_lines,
+            #         colors=[[0, 200, 0, 255]],  # Green for original connections
+            #         radii=[0.005],
+            #     ),
+            # )
+            pass  # HACK
+            # NOTE: Because the bone connection is already visualized, it should not need a
+            #       separate, redundant line segment visualization.
 
     # Log recovered connections (light blue lines)
     if show_recovered and recovered_connections:
@@ -378,8 +381,8 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
                 "world/user/skeleton_recovered",
                 rr.LineStrips3D(
                     strips=recovered_lines,
-                    colors=[[135, 206, 250, 200]],  # Light blue for recovered connections, slightly transparent
-                    radii=[0.003],
+                    colors=[[135, 206, 250, 255]],  # Light blue for recovered connections, slightly transparent
+                    radii=[0.001],
                 ),
             )
 

@@ -229,25 +229,25 @@ def build_skeleton_tree():
 def find_recovered_connections(available_bones: set[FullBodyBoneId]):
     """
     Find recovered connections that bypass missing bones.
-    
+
     Returns:
         List of (parent, child, is_recovered) tuples where is_recovered indicates
         if this connection bypasses missing intermediate bones.
     """
     children_map = build_skeleton_tree()
     connections = []
-    
+
     def find_available_descendants(bone_id: FullBodyBoneId, visited: set = None) -> list[FullBodyBoneId]:
         """Recursively find all available descendant bones."""
         if visited is None:
             visited = set()
-        
+
         if bone_id in visited:
             return []
-        
+
         visited.add(bone_id)
         descendants = []
-        
+
         if bone_id in children_map:
             for child in children_map[bone_id]:
                 if child in available_bones:
@@ -255,14 +255,14 @@ def find_recovered_connections(available_bones: set[FullBodyBoneId]):
                 else:
                     # Child is missing, look deeper
                     descendants.extend(find_available_descendants(child, visited))
-        
+
         return descendants
-    
+
     # Process each original connection
     for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
         parent_available = parent in available_bones
         child_available = child in available_bones
-        
+
         if parent_available and child_available:
             # Original connection is intact
             connections.append((parent, child, False))
@@ -271,7 +271,7 @@ def find_recovered_connections(available_bones: set[FullBodyBoneId]):
             descendants = find_available_descendants(child)
             for descendant in descendants:
                 connections.append((parent, descendant, True))
-    
+
     return connections
 
 
@@ -282,22 +282,22 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
 
     # Get available bones from the frame data
     available_bones = {bone.id for bone in frame_data}
-    
+
     # Get original connections (both bones available)
     original_connections = []
     for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
         if parent in available_bones and child in available_bones:
             original_connections.append((parent, child))
-    
+
     # Get recovered connections (bypass missing bones)
     recovered_connections = []
     if show_recovered:
         recovered_connections = find_recovered_connections(available_bones)
         # Filter out the original connections to keep only the recovered ones
         original_set = set(original_connections)
-        recovered_connections = [(p, c) for p, c, is_recovered in recovered_connections 
+        recovered_connections = [(p, c) for p, c, is_recovered in recovered_connections
                                if is_recovered and (p, c) not in original_set]
-    
+
     print(f"Frame {frame_number}: {len(original_connections)} original + {len(recovered_connections)} recovered connections")
 
     positions = []
@@ -320,41 +320,44 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
             radii=0.01,
         ),
     )
-    
+
     # Create position lookup for line drawing
     bone_positions = {bone.id: bone.position for bone in frame_data}
-    
+
     # Log original connections (green lines)
     if original_connections:
         original_lines = []
         for parent, child in original_connections:
             if parent in bone_positions and child in bone_positions:
                 original_lines.append([bone_positions[parent], bone_positions[child]])
-        
+
         if original_lines:
-            rr.log(
-                "world/user/skeleton_original",
-                rr.LineStrips3D(
-                    strips=original_lines,
-                    colors=[[0, 200, 0, 255]],  # Green for original connections
-                    radii=[0.005],
-                ),
-            )
-    
+            # rr.log(
+            #     "world/user/skeleton_original",
+            #     rr.LineStrips3D(
+            #         strips=original_lines,
+            #         colors=[[0, 200, 0, 255]],  # Green for original connections
+            #         radii=[0.005],
+            #     ),
+            # )
+            pass  # HACK
+            # NOTE: Because the bone connection is already visualized, it should not need a
+            #       separate, redundant line segment visualization.
+
     # Log recovered connections (light blue lines)
     if show_recovered and recovered_connections:
         recovered_lines = []
         for parent, child in recovered_connections:
             if parent in bone_positions and child in bone_positions:
                 recovered_lines.append([bone_positions[parent], bone_positions[child]])
-        
+
         if recovered_lines:
             rr.log(
-                "world/user/skeleton_recovered", 
+                "world/user/skeleton_recovered",
                 rr.LineStrips3D(
                     strips=recovered_lines,
-                    colors=[[135, 206, 250, 200]],  # Light blue for recovered connections, slightly transparent
-                    radii=[0.003],
+                    colors=[[135, 206, 250, 255]],  # Light blue for recovered connections, slightly transparent
+                    radii=[0.001],
                 ),
             )
 
@@ -410,8 +413,8 @@ def main():
 
     rr.init("fbx-pose-visualizer", spawn=True)
 
-    # Set coordinate system to right-handed, Y-up (typical for processed data)
-    rr.log("world", rr.ViewCoordinates.RIGHT_HAND_Y_UP, static=True)
+    # Set coordinate system to right-handed, Z-up (converted from FBX Y-up data)
+    rr.log("world", rr.ViewCoordinates.RIGHT_HAND_Z_UP, static=True)
 
     # Create skeleton class description
     colormap = cm.get_cmap("jet")
