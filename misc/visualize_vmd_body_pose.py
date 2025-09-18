@@ -34,17 +34,14 @@ VMD_TO_FULLBODY_MAPPING = {
     "上半身2": FullBodyBoneId.FullBody_SpineUpper,
     "首": FullBodyBoneId.FullBody_Neck,
     "頭": FullBodyBoneId.FullBody_Head,
-
     # Left arm
     "肩.L": FullBodyBoneId.FullBody_LeftShoulder,
     "腕.L": FullBodyBoneId.FullBody_LeftArmUpper,
     "ひじ.L": FullBodyBoneId.FullBody_LeftArmLower,
-
     # Right arm
     "肩.R": FullBodyBoneId.FullBody_RightShoulder,
     "腕.R": FullBodyBoneId.FullBody_RightArmUpper,
     "ひじ.R": FullBodyBoneId.FullBody_RightArmLower,
-
     # Left hand
     "手首.L": FullBodyBoneId.FullBody_LeftHandWrist,
     "親指０.L": FullBodyBoneId.FullBody_LeftHandThumbMetacarpal,
@@ -62,7 +59,6 @@ VMD_TO_FULLBODY_MAPPING = {
     "小指０.L": FullBodyBoneId.FullBody_LeftHandLittleProximal,
     "小指１.L": FullBodyBoneId.FullBody_LeftHandLittleIntermediate,
     "小指２.L": FullBodyBoneId.FullBody_LeftHandLittleDistal,
-
     # Right hand
     "手首.R": FullBodyBoneId.FullBody_RightHandWrist,
     "親指０.R": FullBodyBoneId.FullBody_RightHandThumbMetacarpal,
@@ -80,17 +76,14 @@ VMD_TO_FULLBODY_MAPPING = {
     "小指０.R": FullBodyBoneId.FullBody_RightHandLittleProximal,
     "小指１.R": FullBodyBoneId.FullBody_RightHandLittleIntermediate,
     "小指２.R": FullBodyBoneId.FullBody_RightHandLittleDistal,
-
     # Left leg
     "足.L": FullBodyBoneId.FullBody_LeftUpperLeg,
     "ひざ.L": FullBodyBoneId.FullBody_LeftLowerLeg,
     "足首.L": FullBodyBoneId.FullBody_LeftFootAnkle,
-
     # Right leg
     "足.R": FullBodyBoneId.FullBody_RightUpperLeg,
     "ひざ.R": FullBodyBoneId.FullBody_RightLowerLeg,
     "足首.R": FullBodyBoneId.FullBody_RightFootAnkle,
-
     # IK bones - these don't directly map to OpenXR bones, so we'll skip them
     "足ＩＫ.L": None,
     "つま先ＩＫ.L": None,
@@ -155,6 +148,35 @@ VMD_TO_FULLBODY_MAPPING_TIP_CONVENTION = {
     "小指２.R": FullBodyBoneId.FullBody_RightHandLittleIntermediate,
 }
 
+# Alternative mapping for tip extension bones (bones with "_tip" suffix)
+# Maps bones that have been extended with tip markers to their corresponding OpenXR bones
+VMD_TO_FULLBODY_MAPPING_TIP_EXTENSION = {
+    # Main body tip extensions
+    "頭_tip": None,  # Head tip - no direct OpenXR equivalent
+    "足首.L_tip": FullBodyBoneId.FullBody_LeftFootBall,  # Left ankle tip -> foot ball
+    "足首.R_tip": FullBodyBoneId.FullBody_RightFootBall,  # Right ankle tip -> foot ball
+    
+    # Left hand tip extensions - map to OpenXR tip bones
+    "小指２.L_tip": FullBodyBoneId.FullBody_LeftHandLittleTip,
+    "薬指２.L_tip": FullBodyBoneId.FullBody_LeftHandRingTip,
+    "中指２.L_tip": FullBodyBoneId.FullBody_LeftHandMiddleTip,
+    "人指２.L_tip": FullBodyBoneId.FullBody_LeftHandIndexTip,
+    "親指２.L_tip": FullBodyBoneId.FullBody_LeftHandThumbTip,
+    
+    # Right hand tip extensions - map to OpenXR tip bones
+    "小指２.R_tip": FullBodyBoneId.FullBody_RightHandLittleTip,
+    "薬指２.R_tip": FullBodyBoneId.FullBody_RightHandRingTip,
+    "中指２.R_tip": FullBodyBoneId.FullBody_RightHandMiddleTip,
+    "人指２.R_tip": FullBodyBoneId.FullBody_RightHandIndexTip,
+    "親指２.R_tip": FullBodyBoneId.FullBody_RightHandThumbTip,
+    
+    # IK bone tip extensions - no suitable OpenXR equivalents, skip
+    "つま先ＩＫ.L_tip": None,  # Toe IK tip - no OpenXR equivalent
+    "足ＩＫ先.L_tip": None,    # Foot IK tip - no OpenXR equivalent  
+    "つま先ＩＫ.R_tip": None,  # Toe IK tip - no OpenXR equivalent
+    "足ＩＫ先.R_tip": None,    # Foot IK tip - no OpenXR equivalent
+}
+
 
 def get_active_mapping(convention: str) -> dict[str, FullBodyBoneId | None]:
     """
@@ -170,14 +192,19 @@ def get_active_mapping(convention: str) -> dict[str, FullBodyBoneId | None]:
         # Start with standard mapping and update with tip convention overrides
         mapping = VMD_TO_FULLBODY_MAPPING.copy()
         mapping.update(VMD_TO_FULLBODY_MAPPING_TIP_CONVENTION)
+        mapping.update(VMD_TO_FULLBODY_MAPPING_TIP_EXTENSION)
         return mapping
     elif convention == "mediapipe":
         # Start with standard mapping and update with mediapipe convention overrides
         mapping = VMD_TO_FULLBODY_MAPPING.copy()
         mapping.update(VMD_TO_FULLBODY_MAPPING_MEDIAPIPE_CONVENTION)
+        mapping.update(VMD_TO_FULLBODY_MAPPING_TIP_EXTENSION)
         return mapping
     else:  # convention == "root"
-        return VMD_TO_FULLBODY_MAPPING
+        # Include tip extensions for all conventions
+        mapping = VMD_TO_FULLBODY_MAPPING.copy()
+        mapping.update(VMD_TO_FULLBODY_MAPPING_TIP_EXTENSION)
+        return mapping
 
 
 class BoneData:
@@ -188,13 +215,46 @@ class BoneData:
         self.position = position
 
 
-def parse_csv_data(csv_file: str, convention: str = "root") -> dict[int, list[BoneData]]:
+def interpolate_spine_lower(frame_bones: list[BoneData]) -> BoneData | None:
+    """
+    Create FullBody_SpineLower by interpolating midpoint between FullBody_SpineMiddle and FullBody_Hips.
+
+    Args:
+        frame_bones: List of BoneData for a single frame
+
+    Returns:
+        BoneData for interpolated SpineLower joint, or None if required bones not found
+    """
+    spine_middle = None
+    hips = None
+
+    for bone in frame_bones:
+        if bone.id == FullBodyBoneId.FullBody_SpineMiddle:
+            spine_middle = bone
+        elif bone.id == FullBodyBoneId.FullBody_Hips:
+            hips = bone
+
+    if spine_middle is None or hips is None:
+        return None
+
+    # Interpolate midpoint
+    mid_x = (spine_middle.position[0] + hips.position[0]) / 2.0
+    mid_y = (spine_middle.position[1] + hips.position[1]) / 2.0
+    mid_z = (spine_middle.position[2] + hips.position[2]) / 2.0
+
+    return BoneData(FullBodyBoneId.FullBody_SpineLower, (mid_x, mid_y, mid_z))
+
+
+def parse_csv_data(
+    csv_file: str, convention: str = "root", interpolate_spine: bool = False
+) -> dict[int, list[BoneData]]:
     """
     Parse CSV data and return frame-indexed bone data.
 
     Args:
         csv_file: Path to the CSV file
         convention: Convention to use - 'root', 'tip', or 'mediapipe'
+        interpolate_spine: Whether to interpolate FullBody_SpineLower from FullBody_SpineMiddle and FullBody_Hips
 
     Returns:
         Dictionary mapping frame numbers to lists of BoneData
@@ -210,10 +270,7 @@ def parse_csv_data(csv_file: str, convention: str = "root") -> dict[int, list[Bo
                 bone_name = row["bone_name"]
 
                 # Skip unmapped bones or bones mapped to None
-                if (
-                    bone_name not in active_mapping
-                    or active_mapping[bone_name] is None
-                ):
+                if bone_name not in active_mapping or active_mapping[bone_name] is None:
                     continue
 
                 bone_id = active_mapping[bone_name]
@@ -237,6 +294,13 @@ def parse_csv_data(csv_file: str, convention: str = "root") -> dict[int, list[Bo
     except Exception as e:
         print(f"Error parsing CSV file: {e}")
         return {}
+
+    # Add interpolated SpineLower joints if requested
+    if interpolate_spine:
+        for bones in frame_data.values():
+            spine_lower = interpolate_spine_lower(bones)
+            if spine_lower is not None:
+                bones.append(spine_lower)
 
     return frame_data
 
@@ -262,7 +326,9 @@ def find_recovered_connections(available_bones: set[FullBodyBoneId]):
     children_map = build_skeleton_tree()
     connections = []
 
-    def find_available_descendants(bone_id: FullBodyBoneId, visited: set = None) -> list[FullBodyBoneId]:
+    def find_available_descendants(
+        bone_id: FullBodyBoneId, visited: set = None
+    ) -> list[FullBodyBoneId]:
         """Recursively find all available descendant bones."""
         if visited is None:
             visited = set()
@@ -306,7 +372,7 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
         return
 
     # Get available bones from the frame data
-    available_bones = {bone.id for bone in frame_data}
+    available_bones = {bone.id: bone for bone in frame_data}
 
     # Get original connections (both bones available)
     original_connections = []
@@ -320,10 +386,15 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
         recovered_connections = find_recovered_connections(available_bones)
         # Filter out the original connections to keep only the recovered ones
         original_set = set(original_connections)
-        recovered_connections = [(p, c) for p, c, is_recovered in recovered_connections
-                               if is_recovered and (p, c) not in original_set]
+        recovered_connections = [
+            (p, c)
+            for p, c, is_recovered in recovered_connections
+            if is_recovered and (p, c) not in original_set
+        ]
 
-    print(f"Frame {frame_number}: {len(original_connections)} original + {len(recovered_connections)} recovered connections")
+    print(
+        f"Frame {frame_number}: {len(original_connections)} original + {len(recovered_connections)} recovered connections"
+    )
 
     positions = []
     keypoint_ids = []
@@ -381,7 +452,9 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
                 "world/user/skeleton_recovered",
                 rr.LineStrips3D(
                     strips=recovered_lines,
-                    colors=[[135, 206, 250, 255]],  # Light blue for recovered connections, slightly transparent
+                    colors=[
+                        [135, 206, 250, 255]
+                    ],  # Light blue for recovered connections, slightly transparent
                     radii=[0.001],
                 ),
             )
@@ -399,14 +472,31 @@ def main():
     parser.add_argument(
         "--fps", type=float, default=30.0, help="Frames per second for animation (default: 30)"
     )
-    parser.add_argument("--show-recovered", action="store_true", default=True,
-                       help="Show recovered connections that bypass missing bones (default: True)")
-    parser.add_argument("--no-recovered", dest="show_recovered", action="store_false",
-                       help="Hide recovered connections, show only original intact connections")
-    parser.add_argument("--convention", type=str, default="root",
-                       choices=["root", "tip", "mediapipe"],
-                       help="Bone mapping convention: 'root' (default), 'tip' (joints named after bone tips), "
-                            "or 'mediapipe' (for MediaPipe compatibility)")
+    parser.add_argument(
+        "--show-recovered",
+        action="store_true",
+        default=True,
+        help="Show recovered connections that bypass missing bones (default: True)",
+    )
+    parser.add_argument(
+        "--no-recovered",
+        dest="show_recovered",
+        action="store_false",
+        help="Hide recovered connections, show only original intact connections",
+    )
+    parser.add_argument(
+        "--convention",
+        type=str,
+        default="root",
+        choices=["root", "tip", "mediapipe"],
+        help="Bone mapping convention: 'root' (default), 'tip' (joints named after bone tips), "
+        "or 'mediapipe' (for MediaPipe compatibility)",
+    )
+    parser.add_argument(
+        "--interpolate-spine",
+        action="store_true",
+        help="Create FullBody_SpineLower by interpolating midpoint between FullBody_SpineMiddle and FullBody_Hips",
+    )
     parser.add_argument(
         "--log-level",
         type=str,
@@ -422,7 +512,9 @@ def main():
     print(f"Loading pose data from {args.file}...")
     if args.convention != "root":
         print(f"Using {args.convention} convention for bone mapping")
-    frame_data = parse_csv_data(args.file, args.convention)
+    if args.interpolate_spine:
+        print("Interpolating FullBody_SpineLower from FullBody_SpineMiddle and FullBody_Hips")
+    frame_data = parse_csv_data(args.file, args.convention, args.interpolate_spine)
 
     if not frame_data:
         print("No valid pose data found!")

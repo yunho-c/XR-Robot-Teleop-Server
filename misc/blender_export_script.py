@@ -20,11 +20,15 @@ CSV_FILEPATH = "/Users/yunhocho/Downloads/vmd_pose_data.csv"
 # --- END OF EDITABLE SECTION ---
 
 
-def export_armature_pose_data():
+def export_armature_pose_data(with_tips=False):
     """
     Exports the pose data of a specified armature to a CSV file.
     It iterates through each frame of the animation and records the
     location, rotation (quaternion), and scale for each pose bone.
+
+    For any bone that has no children (i.e., is a terminal bone
+    like a fingertip), it also exports a "fake" bone representing the tip's
+    location with an identity rotation and scale.
     """
     # Find the armature object in the scene
     armature_obj = bpy.data.objects.get(ARMATURE_NAME)
@@ -84,19 +88,35 @@ def export_armature_pose_data():
                 for pbone in armature_obj.pose.bones:
                     # Get the final transformation matrix in object space
                     final_matrix = pbone.matrix
-
-                    # Decompose the matrix into location, rotation, and scale
                     loc, rot, scale = final_matrix.decompose()
 
-                    # Create a row with the data
+                    # Create a row with the real bone's data
                     row = [
                         frame, pbone.name,
                         loc.x, loc.y, loc.z,
                         rot.w, rot.x, rot.y, rot.z,
                         scale.x, scale.y, scale.z
                     ]
-                    # Write the row to the CSV file
+                    # Write the real bone's row to the CSV file
                     csv_writer.writerow(row)
+
+                    # Check for and create fake tip bone
+                    if with_tips:
+                        # If the bone has no children, it's a terminal bone.
+                        if not pbone.children:
+                            # Define the "fake" tip bone's properties
+                            tip_name = f"{pbone.name}_tip"
+                            tip_loc = pbone.tail # The location is the tail of the parent bone
+
+                            # Create the row for the fake tip bone
+                            tip_row = [
+                                frame, tip_name,
+                                tip_loc.x, tip_loc.y, tip_loc.z,
+                                1.0, 0.0, 0.0, 0.0,  # Identity rotation (w, x, y, z)
+                                1.0, 1.0, 1.0         # Identity scale
+                            ]
+                            # Write the fake tip bone's row to the CSV file
+                            csv_writer.writerow(tip_row)
 
                 # Optional: print progress to the system console
                 if frame % 20 == 0:
@@ -114,5 +134,5 @@ def export_armature_pose_data():
 
 # --- SCRIPT EXECUTION ---
 if __name__ == "__main__":
-    export_armature_pose_data()
+    export_armature_pose_data(with_tips=True)
 

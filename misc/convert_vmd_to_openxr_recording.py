@@ -20,7 +20,7 @@ import csv
 import os
 from datetime import datetime
 
-from visualize_vmd_body_pose import get_active_mapping
+from visualize_vmd_body_pose import BoneData, get_active_mapping, interpolate_spine_lower
 
 from xr_robot_teleop_server import configure_logging
 
@@ -33,6 +33,7 @@ def convert_vmd_to_openxr_csv(
     bone_id_as_int: bool = True,
     convert_coords: bool = True,
     convention: str = "root",
+    interpolate_spine: bool = False,
 ):
     """
     Convert VMD CSV data to OpenXR body pose CSV format.
@@ -45,11 +46,13 @@ def convert_vmd_to_openxr_csv(
         bone_id_as_int: Whether to output bone IDs as integers (True) or strings (False)
         convert_coords: Whether to convert Y-up to Z-up coordinates
         convention: Bone mapping convention ('root', 'tip', or 'mediapipe')
+        interpolate_spine: Whether to interpolate FullBody_SpineLower from FullBody_SpineMiddle and FullBody_Hips
     """
     print(f"Loading VMD data from {input_file}...")
 
     # Read the VMD CSV file
     frame_data = {}
+    bone_data_objects = {}  # Store BoneData objects for interpolation
     active_mapping = get_active_mapping(convention)
 
     try:
@@ -97,18 +100,23 @@ def convert_vmd_to_openxr_csv(
                 if frame not in frame_data:
                     frame_data[frame] = []
 
-                frame_data[frame].append(
-                    {
-                        "bone_id": bone_id.value if bone_id_as_int else bone_id.name,
-                        "pos_x": pos_x,
-                        "pos_y": pos_y,
-                        "pos_z": pos_z,
-                        "rot_x": rot_x_new,
-                        "rot_y": rot_y_new,
-                        "rot_z": rot_z_new,
-                        "rot_w": rot_w,
-                    }
-                )
+                bone_dict = {
+                    "bone_id": bone_id.value if bone_id_as_int else bone_id.name,
+                    "pos_x": pos_x,
+                    "pos_y": pos_y,
+                    "pos_z": pos_z,
+                    "rot_x": rot_x_new,
+                    "rot_y": rot_y_new,
+                    "rot_z": rot_z_new,
+                    "rot_w": rot_w,
+                }
+                frame_data[frame].append(bone_dict)
+
+                # Store BoneData object for interpolation if needed
+                if interpolate_spine:
+                    if frame not in bone_data_objects:
+                        bone_data_objects[frame] = []
+                    bone_data_objects[frame].append(BoneData(bone_id, (pos_x, pos_y, pos_z)))
 
     except FileNotFoundError:
         print(f"Error: Could not find input file {input_file}")
@@ -126,6 +134,28 @@ def convert_vmd_to_openxr_csv(
         1 for bone_id in active_mapping.values() if bone_id is not None
     )
     print(f"Loaded {len(frame_data)} frames with {mapped_bones} mapped bones")
+
+    # Add interpolated SpineLower joints if requested
+    if interpolate_spine:
+        interpolated_count = 0
+        for frame_num in frame_data.keys():
+            if frame_num in bone_data_objects:
+                spine_lower = interpolate_spine_lower(bone_data_objects[frame_num])
+                if spine_lower is not None:
+                    # Convert BoneData back to dictionary format
+                    spine_lower_dict = {
+                        "bone_id": spine_lower.id.value if bone_id_as_int else spine_lower.id.name,
+                        "pos_x": spine_lower.position[0],
+                        "pos_y": spine_lower.position[1],
+                        "pos_z": spine_lower.position[2],
+                        "rot_x": 0.0,  # Default rotation
+                        "rot_y": 0.0,
+                        "rot_z": 0.0,
+                        "rot_w": 1.0,
+                    }
+                    frame_data[frame_num].append(spine_lower_dict)
+                    interpolated_count += 1
+        print(f"Interpolated FullBody_SpineLower for {interpolated_count} frames")
 
     # Write output CSV
     print(f"Writing OpenXR CSV data to {output_file}...")
@@ -214,6 +244,11 @@ def main():
         choices=["root", "tip", "mediapipe"],
         help="Bone mapping convention: 'root' (default), 'tip' (joints named after bone tips), or 'mediapipe' (for MediaPipe compatibility)",
     )
+    parser.add_argument(
+        "--interpolate-spine",
+        action="store_true",
+        help="Create FullBody_SpineLower by interpolating midpoint between FullBody_SpineMiddle and FullBody_Hips",
+    )
 
     args = parser.parse_args()
 
@@ -234,7 +269,9 @@ def main():
     # Convert the file
     if args.convention != "root":
         print(f"Using {args.convention} convention for bone mapping")
-        
+    if args.interpolate_spine:
+        print("Interpolating FullBody_SpineLower from FullBody_SpineMiddle and FullBody_Hips")
+
     success = convert_vmd_to_openxr_csv(
         input_file=args.input,
         output_file=args.output,
@@ -243,6 +280,7 @@ def main():
         bone_id_as_int=not args.bone_id_as_string,
         convert_coords=not args.no_coord_conversion,
         convention=args.convention,
+        interpolate_spine=args.interpolate_spine,
     )
 
     return 0 if success else 1

@@ -11,6 +11,19 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": false
+        },
+        {
+            "name": "VMD Pose Visualizer - Animate",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/misc/visualize_vmd_body_pose.py",
+            "args": [
+                "--file", "misc/vmd_pose_data_golden_smooth.csv",
+                "--animate"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
         }
     ]
 }
