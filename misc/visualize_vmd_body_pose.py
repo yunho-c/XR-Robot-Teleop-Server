@@ -29,6 +29,7 @@ VMD_TO_FULLBODY_MAPPING = {
     # Core body - Japanese VMD names
     "全ての親": None,  # Root bone, skip
     "センター": FullBodyBoneId.FullBody_Hips,
+    "センター_tip": FullBodyBoneId.FullBody_Start,
     "下半身": FullBodyBoneId.FullBody_SpineLower,
     "上半身": FullBodyBoneId.FullBody_SpineMiddle,
     "上半身2": FullBodyBoneId.FullBody_SpineUpper,
@@ -155,24 +156,24 @@ VMD_TO_FULLBODY_MAPPING_TIP_EXTENSION = {
     "頭_tip": None,  # Head tip - no direct OpenXR equivalent
     "足首.L_tip": FullBodyBoneId.FullBody_LeftFootBall,  # Left ankle tip -> foot ball
     "足首.R_tip": FullBodyBoneId.FullBody_RightFootBall,  # Right ankle tip -> foot ball
-    
+
     # Left hand tip extensions - map to OpenXR tip bones
     "小指２.L_tip": FullBodyBoneId.FullBody_LeftHandLittleTip,
     "薬指２.L_tip": FullBodyBoneId.FullBody_LeftHandRingTip,
     "中指２.L_tip": FullBodyBoneId.FullBody_LeftHandMiddleTip,
     "人指２.L_tip": FullBodyBoneId.FullBody_LeftHandIndexTip,
     "親指２.L_tip": FullBodyBoneId.FullBody_LeftHandThumbTip,
-    
+
     # Right hand tip extensions - map to OpenXR tip bones
     "小指２.R_tip": FullBodyBoneId.FullBody_RightHandLittleTip,
     "薬指２.R_tip": FullBodyBoneId.FullBody_RightHandRingTip,
     "中指２.R_tip": FullBodyBoneId.FullBody_RightHandMiddleTip,
     "人指２.R_tip": FullBodyBoneId.FullBody_RightHandIndexTip,
     "親指２.R_tip": FullBodyBoneId.FullBody_RightHandThumbTip,
-    
+
     # IK bone tip extensions - no suitable OpenXR equivalents, skip
     "つま先ＩＫ.L_tip": None,  # Toe IK tip - no OpenXR equivalent
-    "足ＩＫ先.L_tip": None,    # Foot IK tip - no OpenXR equivalent  
+    "足ＩＫ先.L_tip": None,    # Foot IK tip - no OpenXR equivalent
     "つま先ＩＫ.R_tip": None,  # Toe IK tip - no OpenXR equivalent
     "足ＩＫ先.R_tip": None,    # Foot IK tip - no OpenXR equivalent
 }

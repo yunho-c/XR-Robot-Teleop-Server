@@ -118,6 +118,19 @@ def export_armature_pose_data(with_tips=False):
                             # Write the fake tip bone's row to the CSV file
                             csv_writer.writerow(tip_row)
 
+                        # Special case: explicitly save センター bone's tail position
+                        if pbone.name == "センター":
+                            center_tip_name = f"{pbone.name}_tip"
+                            center_tip_loc = pbone.tail
+
+                            center_tip_row = [
+                                frame, center_tip_name,
+                                center_tip_loc.x, center_tip_loc.y, center_tip_loc.z,
+                                1.0, 0.0, 0.0, 0.0,  # Identity rotation
+                                1.0, 1.0, 1.0         # Identity scale
+                            ]
+                            csv_writer.writerow(center_tip_row)
+
                 # Optional: print progress to the system console
                 if frame % 20 == 0:
                     print(f"Processed frame {frame}/{end_frame}...")
