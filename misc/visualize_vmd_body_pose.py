@@ -316,6 +316,328 @@ def build_skeleton_tree():
     return children
 
 
+def calculate_foot_normal_vectors(frame_bones: list[BoneData]) -> list[tuple[tuple[float, float, float], tuple[float, float, float]]]:
+    """
+    Calculate foot normal vectors for left and right feet.
+
+    The foot normal is calculated as the cross product of:
+    - Vector from ankle to lower leg
+    - Vector from ankle to foot ball
+
+    Args:
+        frame_bones: List of BoneData for a single frame
+
+    Returns:
+        List of tuples containing (position, direction) for each foot normal vector
+    """
+    normals = []
+
+    # Find required bones
+    bone_positions = {bone.id: bone.position for bone in frame_bones}
+
+    # Calculate left foot normal
+    left_ankle = bone_positions.get(FullBodyBoneId.FullBody_LeftFootAnkle)
+    left_lower_leg = bone_positions.get(FullBodyBoneId.FullBody_LeftLowerLeg)
+    left_foot_ball = bone_positions.get(FullBodyBoneId.FullBody_LeftFootBall)
+
+    if left_ankle and left_lower_leg and left_foot_ball:
+        # Vector from ankle to lower leg
+        ankle_to_leg = (
+            left_lower_leg[0] - left_ankle[0],
+            left_lower_leg[1] - left_ankle[1],
+            left_lower_leg[2] - left_ankle[2]
+        )
+
+        # Vector from ankle to foot ball
+        ankle_to_ball = (
+            left_foot_ball[0] - left_ankle[0],
+            left_foot_ball[1] - left_ankle[1],
+            left_foot_ball[2] - left_ankle[2]
+        )
+
+        # Cross product (ankle_to_leg × ankle_to_ball)
+        normal = (
+            ankle_to_leg[1] * ankle_to_ball[2] - ankle_to_leg[2] * ankle_to_ball[1],
+            ankle_to_leg[2] * ankle_to_ball[0] - ankle_to_leg[0] * ankle_to_ball[2],
+            ankle_to_leg[0] * ankle_to_ball[1] - ankle_to_leg[1] * ankle_to_ball[0]
+        )
+
+        # Normalize the vector
+        length = (normal[0]**2 + normal[1]**2 + normal[2]**2)**0.5
+        if length > 0:
+            normal = (normal[0]/length, normal[1]/length, normal[2]/length)
+            normals.append((left_ankle, normal))
+
+    # Calculate right foot normal
+    right_ankle = bone_positions.get(FullBodyBoneId.FullBody_RightFootAnkle)
+    right_lower_leg = bone_positions.get(FullBodyBoneId.FullBody_RightLowerLeg)
+    right_foot_ball = bone_positions.get(FullBodyBoneId.FullBody_RightFootBall)
+
+    if right_ankle and right_lower_leg and right_foot_ball:
+        # Vector from ankle to lower leg
+        ankle_to_leg = (
+            right_lower_leg[0] - right_ankle[0],
+            right_lower_leg[1] - right_ankle[1],
+            right_lower_leg[2] - right_ankle[2]
+        )
+
+        # Vector from ankle to foot ball
+        ankle_to_ball = (
+            right_foot_ball[0] - right_ankle[0],
+            right_foot_ball[1] - right_ankle[1],
+            right_foot_ball[2] - right_ankle[2]
+        )
+
+        # Cross product (ankle_to_leg × ankle_to_ball)
+        normal = (
+            ankle_to_leg[1] * ankle_to_ball[2] - ankle_to_leg[2] * ankle_to_ball[1],
+            ankle_to_leg[2] * ankle_to_ball[0] - ankle_to_leg[0] * ankle_to_ball[2],
+            ankle_to_leg[0] * ankle_to_ball[1] - ankle_to_leg[1] * ankle_to_ball[0]
+        )
+
+        # Normalize the vector
+        length = (normal[0]**2 + normal[1]**2 + normal[2]**2)**0.5
+        if length > 0:
+            normal = (normal[0]/length, normal[1]/length, normal[2]/length)
+            normals.append((right_ankle, normal))
+
+    return normals
+
+
+def calculate_foot_plane_meshes(frame_bones: list[BoneData], strategy="tip", offset=0.01) -> list[tuple[list, list]]:
+    """
+    Calculate foot plane meshes for left and right feet.
+
+    Creates rectangular planes defined by the two vectors:
+    - Vector from ankle to foot ball
+    - Cross product normal vector (orthogonal to ankle-to-leg and ankle-to-ball)
+
+    Args:
+        frame_bones: List of BoneData for a single frame
+        strategy: Positioning strategy - "tip" or "center"
+        offset: Small offset (in meters) to apply to all vertices for easier mouse interaction
+
+    Returns:
+        List of tuples containing (vertices, triangles) for each foot plane mesh
+    """
+    meshes = []
+
+    # Find required bones
+    bone_positions = {bone.id: bone.position for bone in frame_bones}
+
+    # Calculate left foot plane
+    left_ankle = bone_positions.get(FullBodyBoneId.FullBody_LeftFootAnkle)
+    left_lower_leg = bone_positions.get(FullBodyBoneId.FullBody_LeftLowerLeg)
+    left_foot_ball = bone_positions.get(FullBodyBoneId.FullBody_LeftFootBall)
+
+    if left_ankle and left_lower_leg and left_foot_ball:
+        # Vector from ankle to lower leg
+        ankle_to_leg = (
+            left_lower_leg[0] - left_ankle[0],
+            left_lower_leg[1] - left_ankle[1],
+            left_lower_leg[2] - left_ankle[2]
+        )
+
+        # Vector from ankle to foot ball
+        ankle_to_ball = (
+            left_foot_ball[0] - left_ankle[0],
+            left_foot_ball[1] - left_ankle[1],
+            left_foot_ball[2] - left_ankle[2]
+        )
+
+        # Cross product (ankle_to_leg × ankle_to_ball) for normal vector
+        normal = (
+            ankle_to_leg[1] * ankle_to_ball[2] - ankle_to_leg[2] * ankle_to_ball[1],
+            ankle_to_leg[2] * ankle_to_ball[0] - ankle_to_leg[0] * ankle_to_ball[2],
+            ankle_to_leg[0] * ankle_to_ball[1] - ankle_to_leg[1] * ankle_to_ball[0]
+        )
+
+        # Normalize the normal vector
+        normal_length = (normal[0]**2 + normal[1]**2 + normal[2]**2)**0.5
+        if normal_length > 0:
+            # normal = (normal[0]/normal_length, normal[1]/normal_length, normal[2]/normal_length)
+            desired_normal_length = 0.05
+            division_factor = normal_length / desired_normal_length
+            normal = (normal[0]/division_factor, normal[1]/division_factor, normal[2]/division_factor)
+
+            # Scale vectors for better plane visualization
+            # scale_factor = 1.0
+            scale_factor = 0.8
+            scaled_ball = tuple(v * scale_factor for v in ankle_to_ball)
+            scaled_normal = tuple(v * scale_factor for v in normal)
+
+            # Normalized vectors for offset direction
+            normal_unit = (normal[0]/normal_length, normal[1]/normal_length, normal[2]/normal_length)
+            ball_length = (ankle_to_ball[0]**2 + ankle_to_ball[1]**2 + ankle_to_ball[2]**2)**0.5
+            if ball_length > 0:
+                ball_unit = (ankle_to_ball[0]/ball_length, ankle_to_ball[1]/ball_length, ankle_to_ball[2]/ball_length)
+            else:
+                ball_unit = (0, 0, 0)
+
+            # Apply offset in both normal and ball directions
+            offset_normal_x = normal_unit[0] * offset
+            offset_normal_y = normal_unit[1] * offset
+            offset_normal_z = normal_unit[2] * offset
+            offset_ball_x = ball_unit[0] * offset
+            offset_ball_y = ball_unit[1] * offset
+            offset_ball_z = ball_unit[2] * offset
+
+            # Create rectangular plane vertices centered at ankle
+            if strategy == "center":
+                vertices = [
+                    # Bottom-left
+                    (left_ankle[0] - scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                    left_ankle[1] - scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                    left_ankle[2] - scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    # Bottom-right
+                    (left_ankle[0] + scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                    left_ankle[1] + scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                    left_ankle[2] + scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    # Top-right
+                    (left_ankle[0] + scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                    left_ankle[1] + scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                    left_ankle[2] + scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    # Top-left
+                    (left_ankle[0] - scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                    left_ankle[1] - scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                    left_ankle[2] - scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                ]
+            elif strategy == "tip":
+                vertices = [
+                    # Bottom-left
+                    (left_ankle[0] + offset_normal_x + offset_ball_x,
+                    left_ankle[1] + offset_normal_y + offset_ball_y,
+                    left_ankle[2] + offset_normal_z + offset_ball_z),
+                    # Bottom-right
+                    (left_ankle[0] + scaled_ball[0] + offset_normal_x + offset_ball_x,
+                    left_ankle[1] + scaled_ball[1] + offset_normal_y + offset_ball_y,
+                    left_ankle[2] + scaled_ball[2] + offset_normal_z + offset_ball_z),
+                    # Top-right
+                    (left_ankle[0] + scaled_ball[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
+                    left_ankle[1] + scaled_ball[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
+                    left_ankle[2] + scaled_ball[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
+                    # Top-left
+                    (left_ankle[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
+                    left_ankle[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
+                    left_ankle[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
+                ]
+
+            # Two triangles forming a rectangle
+            triangles = [
+                [0, 1, 2],  # First triangle
+                [0, 2, 3],  # Second triangle
+            ]
+
+            meshes.append((vertices, triangles))
+
+    # Calculate right foot plane
+    right_ankle = bone_positions.get(FullBodyBoneId.FullBody_RightFootAnkle)
+    right_lower_leg = bone_positions.get(FullBodyBoneId.FullBody_RightLowerLeg)
+    right_foot_ball = bone_positions.get(FullBodyBoneId.FullBody_RightFootBall)
+
+    if right_ankle and right_lower_leg and right_foot_ball:
+        # Vector from ankle to lower leg
+        ankle_to_leg = (
+            right_lower_leg[0] - right_ankle[0],
+            right_lower_leg[1] - right_ankle[1],
+            right_lower_leg[2] - right_ankle[2]
+        )
+
+        # Vector from ankle to foot ball
+        ankle_to_ball = (
+            right_foot_ball[0] - right_ankle[0],
+            right_foot_ball[1] - right_ankle[1],
+            right_foot_ball[2] - right_ankle[2]
+        )
+
+        # Cross product (ankle_to_leg × ankle_to_ball) for normal vector
+        normal = (
+            ankle_to_leg[1] * ankle_to_ball[2] - ankle_to_leg[2] * ankle_to_ball[1],
+            ankle_to_leg[2] * ankle_to_ball[0] - ankle_to_leg[0] * ankle_to_ball[2],
+            ankle_to_leg[0] * ankle_to_ball[1] - ankle_to_leg[1] * ankle_to_ball[0]
+        )
+
+        # Normalize the normal vector
+        normal_length = (normal[0]**2 + normal[1]**2 + normal[2]**2)**0.5
+        if normal_length > 0:
+            # normal = (normal[0]/normal_length, normal[1]/normal_length, normal[2]/normal_length)
+            desired_normal_length = 0.05
+            division_factor = normal_length / desired_normal_length
+            normal = (normal[0]/division_factor, normal[1]/division_factor, normal[2]/division_factor)
+
+            # Scale vectors for better plane visualization
+            # scale_factor = 1.0
+            scale_factor = 0.8
+            scaled_ball = tuple(v * scale_factor for v in ankle_to_ball)
+            scaled_normal = tuple(v * scale_factor for v in normal)
+
+            # Normalized vectors for offset direction
+            normal_unit = (normal[0]/normal_length, normal[1]/normal_length, normal[2]/normal_length)
+            ball_length = (ankle_to_ball[0]**2 + ankle_to_ball[1]**2 + ankle_to_ball[2]**2)**0.5
+            if ball_length > 0:
+                ball_unit = (ankle_to_ball[0]/ball_length, ankle_to_ball[1]/ball_length, ankle_to_ball[2]/ball_length)
+            else:
+                ball_unit = (0, 0, 0)
+
+            # Apply offset in both normal and ball directions
+            offset_normal_x = normal_unit[0] * offset
+            offset_normal_y = normal_unit[1] * offset
+            offset_normal_z = normal_unit[2] * offset
+            offset_ball_x = ball_unit[0] * offset
+            offset_ball_y = ball_unit[1] * offset
+            offset_ball_z = ball_unit[2] * offset
+
+            # Create rectangular plane vertices centered at ankle
+            if strategy == "center":
+                vertices = [
+                    # Bottom-left
+                    (right_ankle[0] - scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                     right_ankle[1] - scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                     right_ankle[2] - scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    # Bottom-right
+                    (right_ankle[0] + scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                     right_ankle[1] + scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                     right_ankle[2] + scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    # Top-right
+                    (right_ankle[0] + scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                     right_ankle[1] + scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                     right_ankle[2] + scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    # Top-left
+                    (right_ankle[0] - scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                     right_ankle[1] - scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                     right_ankle[2] - scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                ]
+            elif strategy == "tip":
+                vertices = [
+                    # Bottom-left
+                    (right_ankle[0] + offset_normal_x + offset_ball_x,
+                     right_ankle[1] + offset_normal_y + offset_ball_y,
+                     right_ankle[2] + offset_normal_z + offset_ball_z),
+                    # Bottom-right
+                    (right_ankle[0] + scaled_ball[0] + offset_normal_x + offset_ball_x,
+                     right_ankle[1] + scaled_ball[1] + offset_normal_y + offset_ball_y,
+                     right_ankle[2] + scaled_ball[2] + offset_normal_z + offset_ball_z),
+                    # Top-right
+                    (right_ankle[0] + scaled_ball[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
+                     right_ankle[1] + scaled_ball[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
+                     right_ankle[2] + scaled_ball[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
+                    # Top-left
+                    (right_ankle[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
+                     right_ankle[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
+                     right_ankle[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
+                ]
+
+            # Two triangles forming a rectangle
+            triangles = [
+                [0, 1, 2],  # First triangle
+                [0, 2, 3],  # Second triangle
+            ]
+
+            meshes.append((vertices, triangles))
+
+    return meshes
+
+
 def find_recovered_connections(available_bones: set[FullBodyBoneId]):
     """
     Find recovered connections that bypass missing bones.
@@ -367,7 +689,7 @@ def find_recovered_connections(available_bones: set[FullBodyBoneId]):
     return connections
 
 
-def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_recovered: bool = True):
+def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_recovered: bool = True, show_foot_normals: bool = False):
     """Visualize a single frame of bone data with separate original and recovered connections."""
     if not frame_data:
         return
@@ -460,6 +782,43 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
                 ),
             )
 
+    # Log foot normal vectors (red arrows)
+    if show_foot_normals:
+        foot_normals = calculate_foot_normal_vectors(frame_data)
+        if foot_normals:
+            arrow_lines = []
+            arrow_length = 0.05  # 5 cm vectors
+
+            for position, direction in foot_normals:
+                end_point = (
+                    position[0] + direction[0] * arrow_length,
+                    position[1] + direction[1] * arrow_length,
+                    position[2] + direction[2] * arrow_length
+                )
+                arrow_lines.append([position, end_point])
+
+            if arrow_lines:
+                rr.log(
+                    "world/user/foot_normals",
+                    rr.LineStrips3D(
+                        strips=arrow_lines,
+                        colors=[[255, 90, 20, 200]],  # Red for foot normal vectors
+                        radii=[0.001],
+                    ),
+                )
+
+        # Log foot plane meshes
+        foot_planes = calculate_foot_plane_meshes(frame_data)
+        for i, (vertices, triangles) in enumerate(foot_planes):
+            rr.log(
+                f"world/user/foot_plane_{i}",
+                rr.Mesh3D(
+                    vertex_positions=vertices,
+                    triangle_indices=triangles,
+                    vertex_colors=[[0, 250, 150, 100]]*4,
+                ),
+            )
+
 
 def main():
     parser = argparse.ArgumentParser(description="Visualize VMD-exported body pose data")
@@ -497,6 +856,11 @@ def main():
         "--interpolate-spine",
         action="store_true",
         help="Create FullBody_SpineLower by interpolating midpoint between FullBody_SpineMiddle and FullBody_Hips",
+    )
+    parser.add_argument(
+        "--show-foot-normals",
+        action="store_true",
+        help="Show foot normal vectors and transparent foot planes (orthogonal to lower leg and foot ball vectors)",
     )
     parser.add_argument(
         "--log-level",
@@ -573,7 +937,7 @@ def main():
             sleep_time = 1.0 / args.fps
             while True:
                 for frame_num in sorted_frames:
-                    visualize_frame(rr, frame_data[frame_num], frame_num)
+                    visualize_frame(rr, frame_data[frame_num], frame_num, args.show_recovered, args.show_foot_normals)
                     time.sleep(sleep_time)
         except KeyboardInterrupt:
             print("\nAnimation stopped")
@@ -583,7 +947,7 @@ def main():
         if target_frame in frame_data:
             print(f"Visualizing frame {target_frame}")
             print(f"Connection recovery: {'enabled' if args.show_recovered else 'disabled'}")
-            visualize_frame(rr, frame_data[target_frame], target_frame, args.show_recovered)
+            visualize_frame(rr, frame_data[target_frame], target_frame, args.show_recovered, args.show_foot_normals)
         else:
             print(f"Frame {target_frame} not found. Available frames: {sorted(frame_data.keys())}")
 
