@@ -13,6 +13,7 @@ Usage:
 
 import argparse
 import csv
+import enum
 import time
 
 import numpy as np
@@ -23,6 +24,16 @@ from xr_robot_teleop_server.schemas.openxr_skeletons import (
     FullBodyBoneId,
     SkeletonType,
 )
+
+
+# Enum for special IK markers used in calculations
+class IKMarker(enum.IntEnum):
+    """Special markers for IK bones used in calculations."""
+
+    TOE_IK_LEFT = 1000
+    TOE_IK_RIGHT = 1001
+    TOE_IK_LEFT_TIP = 1002
+    TOE_IK_RIGHT_TIP = 1003
 
 # VMD to FullBody bone name mapping
 VMD_TO_FULLBODY_MAPPING = {
@@ -85,12 +96,12 @@ VMD_TO_FULLBODY_MAPPING = {
     "足.R": FullBodyBoneId.FullBody_RightUpperLeg,
     "ひざ.R": FullBodyBoneId.FullBody_RightLowerLeg,
     "足首.R": FullBodyBoneId.FullBody_RightFootAnkle,
-    # IK bones - these don't directly map to OpenXR bones, so we'll skip them
+    # IK bones - map toe IK bones for subtalar calculation
     "足ＩＫ.L": None,
-    "つま先ＩＫ.L": None,
+    "つま先ＩＫ.L": IKMarker.TOE_IK_LEFT,  # Special marker for calculation
     "足ＩＫ先.L": None,
     "足ＩＫ.R": None,
-    "つま先ＩＫ.R": None,
+    "つま先ＩＫ.R": IKMarker.TOE_IK_RIGHT,  # Special marker for calculation
     "足ＩＫ先.R": None,
 }
 
@@ -171,10 +182,10 @@ VMD_TO_FULLBODY_MAPPING_TIP_EXTENSION = {
     "人指２.R_tip": FullBodyBoneId.FullBody_RightHandIndexTip,
     "親指２.R_tip": FullBodyBoneId.FullBody_RightHandThumbTip,
 
-    # IK bone tip extensions - no suitable OpenXR equivalents, skip
-    "つま先ＩＫ.L_tip": None,  # Toe IK tip - no OpenXR equivalent
+    # IK bone tip extensions - map toe IK tips for subtalar calculation
+    "つま先ＩＫ.L_tip": IKMarker.TOE_IK_LEFT_TIP,  # Toe IK tip for calculation
     "足ＩＫ先.L_tip": None,    # Foot IK tip - no OpenXR equivalent
-    "つま先ＩＫ.R_tip": None,  # Toe IK tip - no OpenXR equivalent
+    "つま先ＩＫ.R_tip": IKMarker.TOE_IK_RIGHT_TIP,  # Toe IK tip for calculation
     "足ＩＫ先.R_tip": None,    # Foot IK tip - no OpenXR equivalent
 }
 
@@ -246,8 +257,72 @@ def interpolate_spine_lower(frame_bones: list[BoneData]) -> BoneData | None:
     return BoneData(FullBodyBoneId.FullBody_SpineLower, (mid_x, mid_y, mid_z))
 
 
+def calculate_fake_subtalar_bones(frame_bones: list[BoneData]) -> list[BoneData]:
+    """
+    Calculate fake subtalar bones using the vector from つま先ＩＫ to つま先ＩＫ.R_tip added to the ankle position.
+
+    Args:
+        frame_bones: List of BoneData for a single frame
+
+    Returns:
+        List of BoneData for calculated subtalar bones
+    """
+    subtalar_bones = []
+
+    # Build position lookup including special markers
+    bone_positions = {}
+    for bone in frame_bones:
+        bone_positions[bone.id] = bone.position
+
+    # Calculate left subtalar bone
+    left_ankle = bone_positions.get(FullBodyBoneId.FullBody_LeftFootAnkle)
+    toe_ik_left = bone_positions.get(IKMarker.TOE_IK_LEFT)
+    toe_ik_left_tip = bone_positions.get(IKMarker.TOE_IK_LEFT_TIP)
+
+    if left_ankle and toe_ik_left and toe_ik_left_tip:
+        # Vector from つま先ＩＫ.L to つま先ＩＫ.L_tip
+        toe_vector = (
+            toe_ik_left_tip[0] - toe_ik_left[0],
+            toe_ik_left_tip[1] - toe_ik_left[1],
+            toe_ik_left_tip[2] - toe_ik_left[2]
+        )
+
+        # Add this vector to the ankle position
+        subtalar_pos = (
+            left_ankle[0] + toe_vector[0],
+            left_ankle[1] + toe_vector[1],
+            left_ankle[2] + toe_vector[2]
+        )
+
+        subtalar_bones.append(BoneData(FullBodyBoneId.FullBody_LeftFootSubtalar, subtalar_pos))
+
+    # Calculate right subtalar bone
+    right_ankle = bone_positions.get(FullBodyBoneId.FullBody_RightFootAnkle)
+    toe_ik_right = bone_positions.get(IKMarker.TOE_IK_RIGHT)
+    toe_ik_right_tip = bone_positions.get(IKMarker.TOE_IK_RIGHT_TIP)
+
+    if right_ankle and toe_ik_right and toe_ik_right_tip:
+        # Vector from つま先ＩＫ.R to つま先ＩＫ.R_tip
+        toe_vector = (
+            toe_ik_right_tip[0] - toe_ik_right[0],
+            toe_ik_right_tip[1] - toe_ik_right[1],
+            toe_ik_right_tip[2] - toe_ik_right[2]
+        )
+
+        # Add this vector to the ankle position
+        subtalar_pos = (
+            right_ankle[0] + toe_vector[0],
+            right_ankle[1] + toe_vector[1],
+            right_ankle[2] + toe_vector[2]
+        )
+
+        subtalar_bones.append(BoneData(FullBodyBoneId.FullBody_RightFootSubtalar, subtalar_pos))
+
+    return subtalar_bones
+
+
 def parse_csv_data(
-    csv_file: str, convention: str = "root", interpolate_spine: bool = False
+    csv_file: str, convention: str = "root", interpolate_spine: bool = False, calculate_subtalar: bool = True
 ) -> dict[int, list[BoneData]]:
     """
     Parse CSV data and return frame-indexed bone data.
@@ -256,6 +331,7 @@ def parse_csv_data(
         csv_file: Path to the CSV file
         convention: Convention to use - 'root', 'tip', or 'mediapipe'
         interpolate_spine: Whether to interpolate FullBody_SpineLower from FullBody_SpineMiddle and FullBody_Hips
+        calculate_subtalar: Whether to calculate fake subtalar bones from toe IK data
 
     Returns:
         Dictionary mapping frame numbers to lists of BoneData
@@ -302,6 +378,16 @@ def parse_csv_data(
             spine_lower = interpolate_spine_lower(bones)
             if spine_lower is not None:
                 bones.append(spine_lower)
+
+    # Add calculated subtalar bones if requested
+    if calculate_subtalar:
+        subtalar_count = 0
+        for bones in frame_data.values():
+            subtalar_bones = calculate_fake_subtalar_bones(bones)
+            bones.extend(subtalar_bones)
+            subtalar_count += len(subtalar_bones)
+        if subtalar_count > 0:
+            print(f"Calculated {subtalar_count} fake subtalar bones across all frames")
 
     return frame_data
 
@@ -694,8 +780,8 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
     if not frame_data:
         return
 
-    # Get available bones from the frame data
-    available_bones = {bone.id: bone for bone in frame_data}
+    # Get available bones from the frame data (only enum IDs, skip string markers)
+    available_bones = {bone.id: bone for bone in frame_data if isinstance(bone.id, FullBodyBoneId)}
 
     # Get original connections (both bones available)
     original_connections = []
@@ -723,6 +809,9 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
     keypoint_ids = []
 
     for bone in frame_data:
+        # Skip IK markers used for calculation - only visualize FullBodyBoneId
+        if not isinstance(bone.id, FullBodyBoneId):
+            continue
         positions.append(bone.position)
         keypoint_ids.append(bone.id.value)
 
@@ -740,8 +829,8 @@ def visualize_frame(rr, frame_data: list[BoneData], frame_number: int, show_reco
         ),
     )
 
-    # Create position lookup for line drawing
-    bone_positions = {bone.id: bone.position for bone in frame_data}
+    # Create position lookup for line drawing (only for enum IDs, skip string markers)
+    bone_positions = {bone.id: bone.position for bone in frame_data if isinstance(bone.id, FullBodyBoneId)}
 
     # Log original connections (green lines)
     if original_connections:
@@ -863,6 +952,18 @@ def main():
         help="Show foot normal vectors and transparent foot planes (orthogonal to lower leg and foot ball vectors)",
     )
     parser.add_argument(
+        "--calculate-subtalar",
+        action="store_true",
+        default=True,
+        help="Calculate fake subtalar bones from toe IK data (default: True)",
+    )
+    parser.add_argument(
+        "--no-subtalar",
+        dest="calculate_subtalar",
+        action="store_false",
+        help="Skip calculating fake subtalar bones",
+    )
+    parser.add_argument(
         "--log-level",
         type=str,
         default="INFO",
@@ -879,7 +980,9 @@ def main():
         print(f"Using {args.convention} convention for bone mapping")
     if args.interpolate_spine:
         print("Interpolating FullBody_SpineLower from FullBody_SpineMiddle and FullBody_Hips")
-    frame_data = parse_csv_data(args.file, args.convention, args.interpolate_spine)
+    if args.calculate_subtalar:
+        print("Calculating fake subtalar bones from toe IK data")
+    frame_data = parse_csv_data(args.file, args.convention, args.interpolate_spine, args.calculate_subtalar)
 
     if not frame_data:
         print("No valid pose data found!")
