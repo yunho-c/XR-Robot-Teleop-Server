@@ -20,7 +20,12 @@ import csv
 import os
 from datetime import datetime
 
-from visualize_vmd_body_pose import BoneData, get_active_mapping, interpolate_spine_lower
+from visualize_vmd_body_pose import (
+    BoneData,
+    calculate_fake_subtalar_bones,
+    get_active_mapping,
+    interpolate_spine_lower,
+)
 
 from xr_robot_teleop_server import configure_logging
 
@@ -34,6 +39,7 @@ def convert_vmd_to_openxr_csv(
     convert_coords: bool = True,
     convention: str = "root",
     interpolate_spine: bool = False,
+    calculate_subtalar: bool = True,
 ):
     """
     Convert VMD CSV data to OpenXR body pose CSV format.
@@ -47,6 +53,7 @@ def convert_vmd_to_openxr_csv(
         convert_coords: Whether to convert Y-up to Z-up coordinates
         convention: Bone mapping convention ('root', 'tip', or 'mediapipe')
         interpolate_spine: Whether to interpolate FullBody_SpineLower from FullBody_SpineMiddle and FullBody_Hips
+        calculate_subtalar: Whether to calculate fake subtalar bones from toe IK data
     """
     print(f"Loading VMD data from {input_file}...")
 
@@ -63,10 +70,7 @@ def convert_vmd_to_openxr_csv(
                 bone_name = row["bone_name"]
 
                 # Skip unmapped bones or bones mapped to None
-                if (
-                    bone_name not in active_mapping
-                    or active_mapping[bone_name] is None
-                ):
+                if bone_name not in active_mapping or active_mapping[bone_name] is None:
                     continue
 
                 bone_id = active_mapping[bone_name]
@@ -112,8 +116,8 @@ def convert_vmd_to_openxr_csv(
                 }
                 frame_data[frame].append(bone_dict)
 
-                # Store BoneData object for interpolation if needed
-                if interpolate_spine:
+                # Store BoneData object for interpolation/calculation if needed
+                if interpolate_spine or calculate_subtalar:
                     if frame not in bone_data_objects:
                         bone_data_objects[frame] = []
                     bone_data_objects[frame].append(BoneData(bone_id, (pos_x, pos_y, pos_z)))
@@ -130,9 +134,7 @@ def convert_vmd_to_openxr_csv(
         return False
 
     # Count mapped bones
-    mapped_bones = sum(
-        1 for bone_id in active_mapping.values() if bone_id is not None
-    )
+    mapped_bones = sum(1 for bone_id in active_mapping.values() if bone_id is not None)
     print(f"Loaded {len(frame_data)} frames with {mapped_bones} mapped bones")
 
     # Add interpolated SpineLower joints if requested
@@ -156,6 +158,31 @@ def convert_vmd_to_openxr_csv(
                     frame_data[frame_num].append(spine_lower_dict)
                     interpolated_count += 1
         print(f"Interpolated FullBody_SpineLower for {interpolated_count} frames")
+
+    # Add calculated subtalar bones if requested
+    if calculate_subtalar:
+        subtalar_count = 0
+        for frame_num in frame_data.keys():
+            if frame_num in bone_data_objects:
+                subtalar_bones = calculate_fake_subtalar_bones(bone_data_objects[frame_num])
+                for subtalar_bone in subtalar_bones:
+                    # Convert BoneData back to dictionary format
+                    subtalar_dict = {
+                        "bone_id": subtalar_bone.id.value
+                        if bone_id_as_int
+                        else subtalar_bone.id.name,
+                        "pos_x": subtalar_bone.position[0],
+                        "pos_y": subtalar_bone.position[1],
+                        "pos_z": subtalar_bone.position[2],
+                        "rot_x": 0.0,  # Default rotation
+                        "rot_y": 0.0,
+                        "rot_z": 0.0,
+                        "rot_w": 1.0,
+                    }
+                    frame_data[frame_num].append(subtalar_dict)
+                    subtalar_count += 1
+        if subtalar_count > 0:
+            print(f"Calculated {subtalar_count} fake subtalar bones across all frames")
 
     # Write output CSV
     print(f"Writing OpenXR CSV data to {output_file}...")
@@ -249,6 +276,18 @@ def main():
         action="store_true",
         help="Create FullBody_SpineLower by interpolating midpoint between FullBody_SpineMiddle and FullBody_Hips",
     )
+    parser.add_argument(
+        "--calculate-subtalar",
+        action="store_true",
+        default=True,
+        help="Calculate fake subtalar bones from toe IK data (default: True)",
+    )
+    parser.add_argument(
+        "--no-subtalar",
+        dest="calculate_subtalar",
+        action="store_false",
+        help="Skip calculating fake subtalar bones",
+    )
 
     args = parser.parse_args()
 
@@ -271,6 +310,8 @@ def main():
         print(f"Using {args.convention} convention for bone mapping")
     if args.interpolate_spine:
         print("Interpolating FullBody_SpineLower from FullBody_SpineMiddle and FullBody_Hips")
+    if args.calculate_subtalar:
+        print("Calculating fake subtalar bones from toe IK data")
 
     success = convert_vmd_to_openxr_csv(
         input_file=args.input,
@@ -281,6 +322,7 @@ def main():
         convert_coords=not args.no_coord_conversion,
         convention=args.convention,
         interpolate_spine=args.interpolate_spine,
+        calculate_subtalar=args.calculate_subtalar,
     )
 
     return 0 if success else 1
