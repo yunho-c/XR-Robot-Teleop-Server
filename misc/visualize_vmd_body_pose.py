@@ -407,8 +407,8 @@ def calculate_foot_normal_vectors(frame_bones: list[BoneData]) -> list[tuple[tup
     Calculate foot normal vectors for left and right feet.
 
     The foot normal is calculated as the cross product of:
-    - Vector from ankle to lower leg
-    - Vector from ankle to foot ball
+    - Vector from subtalar to ankle
+    - Vector from subtalar to foot ball
 
     Args:
         frame_bones: List of BoneData for a single frame
@@ -422,70 +422,70 @@ def calculate_foot_normal_vectors(frame_bones: list[BoneData]) -> list[tuple[tup
     bone_positions = {bone.id: bone.position for bone in frame_bones}
 
     # Calculate left foot normal
+    left_subtalar = bone_positions.get(FullBodyBoneId.FullBody_LeftFootSubtalar)
     left_ankle = bone_positions.get(FullBodyBoneId.FullBody_LeftFootAnkle)
-    left_lower_leg = bone_positions.get(FullBodyBoneId.FullBody_LeftLowerLeg)
     left_foot_ball = bone_positions.get(FullBodyBoneId.FullBody_LeftFootBall)
 
-    if left_ankle and left_lower_leg and left_foot_ball:
-        # Vector from ankle to lower leg
-        ankle_to_leg = (
-            left_lower_leg[0] - left_ankle[0],
-            left_lower_leg[1] - left_ankle[1],
-            left_lower_leg[2] - left_ankle[2]
+    if left_subtalar and left_ankle and left_foot_ball:
+        # Vector from subtalar to ankle
+        subtalar_to_ankle = (
+            left_ankle[0] - left_subtalar[0],
+            left_ankle[1] - left_subtalar[1],
+            left_ankle[2] - left_subtalar[2]
         )
 
-        # Vector from ankle to foot ball
-        ankle_to_ball = (
-            left_foot_ball[0] - left_ankle[0],
-            left_foot_ball[1] - left_ankle[1],
-            left_foot_ball[2] - left_ankle[2]
+        # Vector from subtalar to foot ball
+        subtalar_to_ball = (
+            left_foot_ball[0] - left_subtalar[0],
+            left_foot_ball[1] - left_subtalar[1],
+            left_foot_ball[2] - left_subtalar[2]
         )
 
-        # Cross product (ankle_to_leg × ankle_to_ball)
+        # Cross product (subtalar_to_ankle × subtalar_to_ball)
         normal = (
-            ankle_to_leg[1] * ankle_to_ball[2] - ankle_to_leg[2] * ankle_to_ball[1],
-            ankle_to_leg[2] * ankle_to_ball[0] - ankle_to_leg[0] * ankle_to_ball[2],
-            ankle_to_leg[0] * ankle_to_ball[1] - ankle_to_leg[1] * ankle_to_ball[0]
+            subtalar_to_ankle[1] * subtalar_to_ball[2] - subtalar_to_ankle[2] * subtalar_to_ball[1],
+            subtalar_to_ankle[2] * subtalar_to_ball[0] - subtalar_to_ankle[0] * subtalar_to_ball[2],
+            subtalar_to_ankle[0] * subtalar_to_ball[1] - subtalar_to_ankle[1] * subtalar_to_ball[0]
         )
 
         # Normalize the vector
         length = (normal[0]**2 + normal[1]**2 + normal[2]**2)**0.5
         if length > 0:
             normal = (normal[0]/length, normal[1]/length, normal[2]/length)
-            normals.append((left_ankle, normal))
+            normals.append((left_subtalar, normal))
 
     # Calculate right foot normal
+    right_subtalar = bone_positions.get(FullBodyBoneId.FullBody_RightFootSubtalar)
     right_ankle = bone_positions.get(FullBodyBoneId.FullBody_RightFootAnkle)
-    right_lower_leg = bone_positions.get(FullBodyBoneId.FullBody_RightLowerLeg)
     right_foot_ball = bone_positions.get(FullBodyBoneId.FullBody_RightFootBall)
 
-    if right_ankle and right_lower_leg and right_foot_ball:
-        # Vector from ankle to lower leg
-        ankle_to_leg = (
-            right_lower_leg[0] - right_ankle[0],
-            right_lower_leg[1] - right_ankle[1],
-            right_lower_leg[2] - right_ankle[2]
+    if right_subtalar and right_ankle and right_foot_ball:
+        # Vector from subtalar to ankle
+        subtalar_to_ankle = (
+            right_ankle[0] - right_subtalar[0],
+            right_ankle[1] - right_subtalar[1],
+            right_ankle[2] - right_subtalar[2]
         )
 
-        # Vector from ankle to foot ball
-        ankle_to_ball = (
-            right_foot_ball[0] - right_ankle[0],
-            right_foot_ball[1] - right_ankle[1],
-            right_foot_ball[2] - right_ankle[2]
+        # Vector from subtalar to foot ball
+        subtalar_to_ball = (
+            right_foot_ball[0] - right_subtalar[0],
+            right_foot_ball[1] - right_subtalar[1],
+            right_foot_ball[2] - right_subtalar[2]
         )
 
-        # Cross product (ankle_to_leg × ankle_to_ball)
+        # Cross product (subtalar_to_ankle × subtalar_to_ball)
         normal = (
-            ankle_to_leg[1] * ankle_to_ball[2] - ankle_to_leg[2] * ankle_to_ball[1],
-            ankle_to_leg[2] * ankle_to_ball[0] - ankle_to_leg[0] * ankle_to_ball[2],
-            ankle_to_leg[0] * ankle_to_ball[1] - ankle_to_leg[1] * ankle_to_ball[0]
+            subtalar_to_ankle[1] * subtalar_to_ball[2] - subtalar_to_ankle[2] * subtalar_to_ball[1],
+            subtalar_to_ankle[2] * subtalar_to_ball[0] - subtalar_to_ankle[0] * subtalar_to_ball[2],
+            subtalar_to_ankle[0] * subtalar_to_ball[1] - subtalar_to_ankle[1] * subtalar_to_ball[0]
         )
 
         # Normalize the vector
         length = (normal[0]**2 + normal[1]**2 + normal[2]**2)**0.5
         if length > 0:
             normal = (normal[0]/length, normal[1]/length, normal[2]/length)
-            normals.append((right_ankle, normal))
+            normals.append((right_subtalar, normal))
 
     return normals
 
@@ -495,8 +495,8 @@ def calculate_foot_plane_meshes(frame_bones: list[BoneData], strategy="tip", off
     Calculate foot plane meshes for left and right feet.
 
     Creates rectangular planes defined by the two vectors:
-    - Vector from ankle to foot ball
-    - Cross product normal vector (orthogonal to ankle-to-leg and ankle-to-ball)
+    - Vector from subtalar to foot ball
+    - Cross product normal vector (orthogonal to subtalar-to-ankle and subtalar-to-ball)
 
     Args:
         frame_bones: List of BoneData for a single frame
@@ -512,30 +512,30 @@ def calculate_foot_plane_meshes(frame_bones: list[BoneData], strategy="tip", off
     bone_positions = {bone.id: bone.position for bone in frame_bones}
 
     # Calculate left foot plane
+    left_subtalar = bone_positions.get(FullBodyBoneId.FullBody_LeftFootSubtalar)
     left_ankle = bone_positions.get(FullBodyBoneId.FullBody_LeftFootAnkle)
-    left_lower_leg = bone_positions.get(FullBodyBoneId.FullBody_LeftLowerLeg)
     left_foot_ball = bone_positions.get(FullBodyBoneId.FullBody_LeftFootBall)
 
-    if left_ankle and left_lower_leg and left_foot_ball:
-        # Vector from ankle to lower leg
-        ankle_to_leg = (
-            left_lower_leg[0] - left_ankle[0],
-            left_lower_leg[1] - left_ankle[1],
-            left_lower_leg[2] - left_ankle[2]
+    if left_subtalar and left_ankle and left_foot_ball:
+        # Vector from subtalar to ankle
+        subtalar_to_ankle = (
+            left_ankle[0] - left_subtalar[0],
+            left_ankle[1] - left_subtalar[1],
+            left_ankle[2] - left_subtalar[2]
         )
 
-        # Vector from ankle to foot ball
-        ankle_to_ball = (
-            left_foot_ball[0] - left_ankle[0],
-            left_foot_ball[1] - left_ankle[1],
-            left_foot_ball[2] - left_ankle[2]
+        # Vector from subtalar to foot ball
+        subtalar_to_ball = (
+            left_foot_ball[0] - left_subtalar[0],
+            left_foot_ball[1] - left_subtalar[1],
+            left_foot_ball[2] - left_subtalar[2]
         )
 
-        # Cross product (ankle_to_leg × ankle_to_ball) for normal vector
+        # Cross product (subtalar_to_ankle × subtalar_to_ball) for normal vector
         normal = (
-            ankle_to_leg[1] * ankle_to_ball[2] - ankle_to_leg[2] * ankle_to_ball[1],
-            ankle_to_leg[2] * ankle_to_ball[0] - ankle_to_leg[0] * ankle_to_ball[2],
-            ankle_to_leg[0] * ankle_to_ball[1] - ankle_to_leg[1] * ankle_to_ball[0]
+            subtalar_to_ankle[1] * subtalar_to_ball[2] - subtalar_to_ankle[2] * subtalar_to_ball[1],
+            subtalar_to_ankle[2] * subtalar_to_ball[0] - subtalar_to_ankle[0] * subtalar_to_ball[2],
+            subtalar_to_ankle[0] * subtalar_to_ball[1] - subtalar_to_ankle[1] * subtalar_to_ball[0]
         )
 
         # Normalize the normal vector
@@ -549,14 +549,14 @@ def calculate_foot_plane_meshes(frame_bones: list[BoneData], strategy="tip", off
             # Scale vectors for better plane visualization
             # scale_factor = 1.0
             scale_factor = 0.8
-            scaled_ball = tuple(v * scale_factor for v in ankle_to_ball)
+            scaled_ball = tuple(v * scale_factor for v in subtalar_to_ball)
             scaled_normal = tuple(v * scale_factor for v in normal)
 
             # Normalized vectors for offset direction
             normal_unit = (normal[0]/normal_length, normal[1]/normal_length, normal[2]/normal_length)
-            ball_length = (ankle_to_ball[0]**2 + ankle_to_ball[1]**2 + ankle_to_ball[2]**2)**0.5
+            ball_length = (subtalar_to_ball[0]**2 + subtalar_to_ball[1]**2 + subtalar_to_ball[2]**2)**0.5
             if ball_length > 0:
-                ball_unit = (ankle_to_ball[0]/ball_length, ankle_to_ball[1]/ball_length, ankle_to_ball[2]/ball_length)
+                ball_unit = (subtalar_to_ball[0]/ball_length, subtalar_to_ball[1]/ball_length, subtalar_to_ball[2]/ball_length)
             else:
                 ball_unit = (0, 0, 0)
 
@@ -572,40 +572,40 @@ def calculate_foot_plane_meshes(frame_bones: list[BoneData], strategy="tip", off
             if strategy == "center":
                 vertices = [
                     # Bottom-left
-                    (left_ankle[0] - scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
-                    left_ankle[1] - scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
-                    left_ankle[2] - scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    (left_subtalar[0] - scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                    left_subtalar[1] - scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                    left_subtalar[2] - scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
                     # Bottom-right
-                    (left_ankle[0] + scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
-                    left_ankle[1] + scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
-                    left_ankle[2] + scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    (left_subtalar[0] + scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                    left_subtalar[1] + scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                    left_subtalar[2] + scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
                     # Top-right
-                    (left_ankle[0] + scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
-                    left_ankle[1] + scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
-                    left_ankle[2] + scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    (left_subtalar[0] + scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                    left_subtalar[1] + scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                    left_subtalar[2] + scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
                     # Top-left
-                    (left_ankle[0] - scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
-                    left_ankle[1] - scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
-                    left_ankle[2] - scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    (left_subtalar[0] - scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                    left_subtalar[1] - scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                    left_subtalar[2] - scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
                 ]
             elif strategy == "tip":
                 vertices = [
                     # Bottom-left
-                    (left_ankle[0] + offset_normal_x + offset_ball_x,
-                    left_ankle[1] + offset_normal_y + offset_ball_y,
-                    left_ankle[2] + offset_normal_z + offset_ball_z),
+                    (left_subtalar[0] + offset_normal_x + offset_ball_x,
+                    left_subtalar[1] + offset_normal_y + offset_ball_y,
+                    left_subtalar[2] + offset_normal_z + offset_ball_z),
                     # Bottom-right
-                    (left_ankle[0] + scaled_ball[0] + offset_normal_x + offset_ball_x,
-                    left_ankle[1] + scaled_ball[1] + offset_normal_y + offset_ball_y,
-                    left_ankle[2] + scaled_ball[2] + offset_normal_z + offset_ball_z),
+                    (left_subtalar[0] + scaled_ball[0] + offset_normal_x + offset_ball_x,
+                    left_subtalar[1] + scaled_ball[1] + offset_normal_y + offset_ball_y,
+                    left_subtalar[2] + scaled_ball[2] + offset_normal_z + offset_ball_z),
                     # Top-right
-                    (left_ankle[0] + scaled_ball[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
-                    left_ankle[1] + scaled_ball[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
-                    left_ankle[2] + scaled_ball[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
+                    (left_subtalar[0] + scaled_ball[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
+                    left_subtalar[1] + scaled_ball[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
+                    left_subtalar[2] + scaled_ball[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
                     # Top-left
-                    (left_ankle[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
-                    left_ankle[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
-                    left_ankle[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
+                    (left_subtalar[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
+                    left_subtalar[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
+                    left_subtalar[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
                 ]
 
             # Two triangles forming a rectangle
@@ -617,30 +617,30 @@ def calculate_foot_plane_meshes(frame_bones: list[BoneData], strategy="tip", off
             meshes.append((vertices, triangles))
 
     # Calculate right foot plane
+    right_subtalar = bone_positions.get(FullBodyBoneId.FullBody_RightFootSubtalar)
     right_ankle = bone_positions.get(FullBodyBoneId.FullBody_RightFootAnkle)
-    right_lower_leg = bone_positions.get(FullBodyBoneId.FullBody_RightLowerLeg)
     right_foot_ball = bone_positions.get(FullBodyBoneId.FullBody_RightFootBall)
 
-    if right_ankle and right_lower_leg and right_foot_ball:
-        # Vector from ankle to lower leg
-        ankle_to_leg = (
-            right_lower_leg[0] - right_ankle[0],
-            right_lower_leg[1] - right_ankle[1],
-            right_lower_leg[2] - right_ankle[2]
+    if right_subtalar and right_ankle and right_foot_ball:
+        # Vector from subtalar to ankle
+        subtalar_to_ankle = (
+            right_ankle[0] - right_subtalar[0],
+            right_ankle[1] - right_subtalar[1],
+            right_ankle[2] - right_subtalar[2]
         )
 
-        # Vector from ankle to foot ball
-        ankle_to_ball = (
-            right_foot_ball[0] - right_ankle[0],
-            right_foot_ball[1] - right_ankle[1],
-            right_foot_ball[2] - right_ankle[2]
+        # Vector from subtalar to foot ball
+        subtalar_to_ball = (
+            right_foot_ball[0] - right_subtalar[0],
+            right_foot_ball[1] - right_subtalar[1],
+            right_foot_ball[2] - right_subtalar[2]
         )
 
-        # Cross product (ankle_to_leg × ankle_to_ball) for normal vector
+        # Cross product (subtalar_to_ankle × subtalar_to_ball) for normal vector
         normal = (
-            ankle_to_leg[1] * ankle_to_ball[2] - ankle_to_leg[2] * ankle_to_ball[1],
-            ankle_to_leg[2] * ankle_to_ball[0] - ankle_to_leg[0] * ankle_to_ball[2],
-            ankle_to_leg[0] * ankle_to_ball[1] - ankle_to_leg[1] * ankle_to_ball[0]
+            subtalar_to_ankle[1] * subtalar_to_ball[2] - subtalar_to_ankle[2] * subtalar_to_ball[1],
+            subtalar_to_ankle[2] * subtalar_to_ball[0] - subtalar_to_ankle[0] * subtalar_to_ball[2],
+            subtalar_to_ankle[0] * subtalar_to_ball[1] - subtalar_to_ankle[1] * subtalar_to_ball[0]
         )
 
         # Normalize the normal vector
@@ -654,14 +654,14 @@ def calculate_foot_plane_meshes(frame_bones: list[BoneData], strategy="tip", off
             # Scale vectors for better plane visualization
             # scale_factor = 1.0
             scale_factor = 0.8
-            scaled_ball = tuple(v * scale_factor for v in ankle_to_ball)
+            scaled_ball = tuple(v * scale_factor for v in subtalar_to_ball)
             scaled_normal = tuple(v * scale_factor for v in normal)
 
             # Normalized vectors for offset direction
             normal_unit = (normal[0]/normal_length, normal[1]/normal_length, normal[2]/normal_length)
-            ball_length = (ankle_to_ball[0]**2 + ankle_to_ball[1]**2 + ankle_to_ball[2]**2)**0.5
+            ball_length = (subtalar_to_ball[0]**2 + subtalar_to_ball[1]**2 + subtalar_to_ball[2]**2)**0.5
             if ball_length > 0:
-                ball_unit = (ankle_to_ball[0]/ball_length, ankle_to_ball[1]/ball_length, ankle_to_ball[2]/ball_length)
+                ball_unit = (subtalar_to_ball[0]/ball_length, subtalar_to_ball[1]/ball_length, subtalar_to_ball[2]/ball_length)
             else:
                 ball_unit = (0, 0, 0)
 
@@ -677,40 +677,40 @@ def calculate_foot_plane_meshes(frame_bones: list[BoneData], strategy="tip", off
             if strategy == "center":
                 vertices = [
                     # Bottom-left
-                    (right_ankle[0] - scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
-                     right_ankle[1] - scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
-                     right_ankle[2] - scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    (right_subtalar[0] - scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                     right_subtalar[1] - scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                     right_subtalar[2] - scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
                     # Bottom-right
-                    (right_ankle[0] + scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
-                     right_ankle[1] + scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
-                     right_ankle[2] + scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    (right_subtalar[0] + scaled_ball[0]/2 - scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                     right_subtalar[1] + scaled_ball[1]/2 - scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                     right_subtalar[2] + scaled_ball[2]/2 - scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
                     # Top-right
-                    (right_ankle[0] + scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
-                     right_ankle[1] + scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
-                     right_ankle[2] + scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    (right_subtalar[0] + scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                     right_subtalar[1] + scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                     right_subtalar[2] + scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
                     # Top-left
-                    (right_ankle[0] - scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
-                     right_ankle[1] - scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
-                     right_ankle[2] - scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
+                    (right_subtalar[0] - scaled_ball[0]/2 + scaled_normal[0]/2 + offset_normal_x + offset_ball_x,
+                     right_subtalar[1] - scaled_ball[1]/2 + scaled_normal[1]/2 + offset_normal_y + offset_ball_y,
+                     right_subtalar[2] - scaled_ball[2]/2 + scaled_normal[2]/2 + offset_normal_z + offset_ball_z),
                 ]
             elif strategy == "tip":
                 vertices = [
                     # Bottom-left
-                    (right_ankle[0] + offset_normal_x + offset_ball_x,
-                     right_ankle[1] + offset_normal_y + offset_ball_y,
-                     right_ankle[2] + offset_normal_z + offset_ball_z),
+                    (right_subtalar[0] + offset_normal_x + offset_ball_x,
+                     right_subtalar[1] + offset_normal_y + offset_ball_y,
+                     right_subtalar[2] + offset_normal_z + offset_ball_z),
                     # Bottom-right
-                    (right_ankle[0] + scaled_ball[0] + offset_normal_x + offset_ball_x,
-                     right_ankle[1] + scaled_ball[1] + offset_normal_y + offset_ball_y,
-                     right_ankle[2] + scaled_ball[2] + offset_normal_z + offset_ball_z),
+                    (right_subtalar[0] + scaled_ball[0] + offset_normal_x + offset_ball_x,
+                     right_subtalar[1] + scaled_ball[1] + offset_normal_y + offset_ball_y,
+                     right_subtalar[2] + scaled_ball[2] + offset_normal_z + offset_ball_z),
                     # Top-right
-                    (right_ankle[0] + scaled_ball[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
-                     right_ankle[1] + scaled_ball[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
-                     right_ankle[2] + scaled_ball[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
+                    (right_subtalar[0] + scaled_ball[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
+                     right_subtalar[1] + scaled_ball[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
+                     right_subtalar[2] + scaled_ball[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
                     # Top-left
-                    (right_ankle[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
-                     right_ankle[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
-                     right_ankle[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
+                    (right_subtalar[0] + scaled_normal[0] + offset_normal_x + offset_ball_x,
+                     right_subtalar[1] + scaled_normal[1] + offset_normal_y + offset_ball_y,
+                     right_subtalar[2] + scaled_normal[2] + offset_normal_z + offset_ball_z),
                 ]
 
             # Two triangles forming a rectangle
