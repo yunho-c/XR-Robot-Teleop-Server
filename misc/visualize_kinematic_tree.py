@@ -174,7 +174,8 @@ LAFAN_TO_FULLBODY_MAPPING = {
     "Hips": FullBodyBoneId.FullBody_Hips,
     "Spine": FullBodyBoneId.FullBody_SpineLower,
     "Spine1": FullBodyBoneId.FullBody_SpineMiddle,
-    "Spine2": FullBodyBoneId.FullBody_Chest,
+    # "Spine2": FullBodyBoneId.FullBody_Chest, # ORIG
+    "Spine2": FullBodyBoneId.FullBody_SpineUpper, # TEMP 
     "Neck": FullBodyBoneId.FullBody_Neck,
     "Head": FullBodyBoneId.FullBody_Head,
     # Left arm branch

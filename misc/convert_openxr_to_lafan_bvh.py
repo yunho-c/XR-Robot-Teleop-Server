@@ -122,17 +122,24 @@ def load_openxr_csv(input_file: Path) -> tuple[List[float], List[FrameData]]:
         for row in reader:
             time_value = parse_float(row[time_field])
 
+            bone_id_raw = row["bone_id"].strip()
+            full_body_id = None
+
             try:
-                bone_id = int(row["bone_id"])
-                full_body_id = FullBodyBoneId(bone_id)
+                bone_id = int(bone_id_raw)
             except ValueError:
+                bone_id = None
+
+            if bone_id is not None:
+                full_body_id = FullBodyBoneId._value2member_map_.get(bone_id)
+
+            if full_body_id is None:
                 # Support string-based bone IDs as a fallback (e.g., 'FullBody_Hips')
-                try:
-                    full_body_id = FullBodyBoneId[row["bone_id"]]
-                except KeyError as exc:  # pragma: no cover - defensive
-                    raise ValueError(
-                        f"Unrecognized bone identifier '{row['bone_id']}'"
-                    ) from exc
+                full_body_id = FullBodyBoneId.__members__.get(bone_id_raw)
+
+            if full_body_id is None:
+                # Skip joints that are not part of the OpenXR enum
+                continue
 
             if full_body_id not in FULLBODY_TO_LAFAN:
                 # Skip bones that are not part of the LAFAN skeleton
@@ -429,4 +436,3 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
 
 if __name__ == "__main__":
     main()
-
