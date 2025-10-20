@@ -28,35 +28,38 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 from visualize_kinematic_tree import LAFAN_TO_FULLBODY_MAPPING
-from xr_robot_teleop_server.schemas.openxr_skeletons import FullBodyBoneId
+from xr_robot_teleop_server.schemas.openxr_skeletons import (
+    FULL_BODY_SKELETON_CONNECTIONS,
+    FullBodyBoneId,
+)
 
 
 # ---------------------------------------------------------------------------
 # Skeleton definition
 
-LAFAN_JOINT_HIERARCHY: Sequence[tuple[str, Optional[str]]] = (
-    ("Hips", None),
-    ("Spine", "Hips"),
-    ("Spine1", "Spine"),
-    ("Spine2", "Spine1"),
-    ("Neck", "Spine2"),
-    ("Head", "Neck"),
-    ("LeftShoulder", "Spine2"),
-    ("LeftArm", "LeftShoulder"),
-    ("LeftForeArm", "LeftArm"),
-    ("LeftHand", "LeftForeArm"),
-    ("RightShoulder", "Spine2"),
-    ("RightArm", "RightShoulder"),
-    ("RightForeArm", "RightArm"),
-    ("RightHand", "RightForeArm"),
-    ("LeftUpLeg", "Hips"),
-    ("LeftLeg", "LeftUpLeg"),
-    ("LeftFoot", "LeftLeg"),
-    ("LeftToe", "LeftFoot"),
-    ("RightUpLeg", "Hips"),
-    ("RightLeg", "RightUpLeg"),
-    ("RightFoot", "RightLeg"),
-    ("RightToe", "RightFoot"),
+LAFAN_JOINT_NAMES: Sequence[str] = (
+    "Hips",
+    "Spine",
+    "Spine1",
+    "Spine2",
+    "Neck",
+    "Head",
+    "LeftShoulder",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "LeftToe",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "RightToe",
 )
 
 
@@ -64,6 +67,55 @@ FULLBODY_TO_LAFAN: Dict[FullBodyBoneId, str] = {
     full_body_id: joint
     for joint, full_body_id in LAFAN_TO_FULLBODY_MAPPING.items()
 }
+
+
+def build_openxr_parent_map(
+    connections: Sequence[tuple[FullBodyBoneId, FullBodyBoneId]]
+) -> Dict[FullBodyBoneId, FullBodyBoneId]:
+    """Create a parent lookup from the OpenXR skeleton connectivity graph."""
+
+    parent_map: Dict[FullBodyBoneId, FullBodyBoneId] = {}
+    for parent, child in connections:
+        parent_map[child] = parent
+    return parent_map
+
+
+OPENXR_PARENT_MAP = build_openxr_parent_map(FULL_BODY_SKELETON_CONNECTIONS)
+
+
+def compute_lafan_parent_map() -> Dict[str, Optional[str]]:
+    """Infer LAFAN joint parents by walking the OpenXR connectivity graph."""
+
+    parent_map: Dict[str, Optional[str]] = {}
+
+    for joint in LAFAN_JOINT_NAMES:
+        full_body_id = LAFAN_TO_FULLBODY_MAPPING[joint]
+        parent_bone = OPENXR_PARENT_MAP.get(full_body_id)
+        lafan_parent: Optional[str] = None
+
+        while parent_bone is not None:
+            lafan_parent = FULLBODY_TO_LAFAN.get(parent_bone)
+            if lafan_parent is not None:
+                break
+            parent_bone = OPENXR_PARENT_MAP.get(parent_bone)
+
+        parent_map[joint] = lafan_parent
+
+    return parent_map
+
+
+LAFAN_PARENT_MAP = compute_lafan_parent_map()
+
+
+LAFAN_JOINT_HIERARCHY: Sequence[tuple[str, Optional[str]]] = tuple(
+    (joint, LAFAN_PARENT_MAP[joint]) for joint in LAFAN_JOINT_NAMES
+)
+
+for joint_name, parent_name in LAFAN_JOINT_HIERARCHY:
+    if joint_name != "Hips" and parent_name is None:
+        raise ValueError(
+            f"Unable to infer parent joint for '{joint_name}' from OpenXR connectivity"
+        )
 
 
 # ---------------------------------------------------------------------------
