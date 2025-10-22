@@ -19,6 +19,90 @@ CSV_FILEPATH = "/Users/yunhocho/Downloads/vmd_pose_data.csv"
 
 # --- END OF EDITABLE SECTION ---
 
+# --- OPTIONAL MOTION FILTERING ---
+# Set USE_STATIC_LOWER_BODY to True to freeze the lower body at a single frame
+# (default scene.frame_start), allowing only the upper body to animate.
+USE_STATIC_LOWER_BODY = True
+
+# Names of the lower-body bones whose motion should be frozen. These defaults
+# match common MMD-style rigs but you can customize them for your armature.
+LOWER_BODY_ROOT_BONES = [
+    "下半身",
+    "左足",
+    "右足",
+    "左ひざ",
+    "右ひざ",
+    "左足首",
+    "右足首",
+    "左つま先",
+    "右つま先",
+]
+
+# Additional bones to freeze even if they are not descendants of the root list.
+LOWER_BODY_ADDITIONAL_BONES = [
+    "センター",
+]
+
+# When True, every descendant of each entry in LOWER_BODY_ROOT_BONES is frozen.
+LOWER_BODY_INCLUDE_CHILDREN = True
+
+# Override the frame used to capture the static lower-body pose. Use None to
+# fall back to the scene's start frame.
+LOWER_BODY_FREEZE_FRAME = None
+
+
+def extract_pose_transform(pbone):
+    """Return location, rotation, and scale tuples for the given pose bone."""
+    loc, rot, scale = pbone.matrix.decompose()
+    return (
+        (loc.x, loc.y, loc.z),
+        (rot.w, rot.x, rot.y, rot.z),
+        (scale.x, scale.y, scale.z),
+    )
+
+
+def vector_to_tuple(vec):
+    """Convert a Blender mathutils vector into a plain tuple."""
+    return (vec.x, vec.y, vec.z)
+
+
+def gather_lower_body_bone_names(armature_obj):
+    """
+    Build the set of bone names whose transforms should be frozen for the
+    lower body export option.
+    """
+    pose_bones = armature_obj.pose.bones
+    lower_body_names = set()
+    missing_bones = set()
+
+    for bone_name in LOWER_BODY_ROOT_BONES:
+        pbone = pose_bones.get(bone_name)
+        if not pbone:
+            missing_bones.add(bone_name)
+            continue
+
+        stack = [pbone]
+        while stack:
+            current = stack.pop()
+            if current.name in lower_body_names:
+                continue
+            lower_body_names.add(current.name)
+            if LOWER_BODY_INCLUDE_CHILDREN:
+                stack.extend(current.children)
+
+    for bone_name in LOWER_BODY_ADDITIONAL_BONES:
+        pbone = pose_bones.get(bone_name)
+        if not pbone:
+            missing_bones.add(bone_name)
+            continue
+        lower_body_names.add(pbone.name)
+
+    if missing_bones:
+        missing_list = ", ".join(sorted(missing_bones))
+        print(f"Warning: Lower body bone(s) not found on armature: {missing_list}")
+
+    return lower_body_names
+
 
 def export_armature_pose_data(with_tips=False):
     """
@@ -75,6 +159,57 @@ def export_armature_pose_data(with_tips=False):
             csv_writer = csv.writer(csvfile)
             csv_writer.writerow(header)
 
+            freeze_lower_body = USE_STATIC_LOWER_BODY
+            lower_body_transforms = {}
+            lower_body_tip_locations = {}
+
+            if freeze_lower_body:
+                lower_body_bone_names = gather_lower_body_bone_names(armature_obj)
+
+                if lower_body_bone_names:
+                    frozen_list_str = ", ".join(sorted(lower_body_bone_names))
+                    print(f"Lower body bones to freeze: {frozen_list_str}")
+
+                    freeze_frame = LOWER_BODY_FREEZE_FRAME
+                    if freeze_frame is None:
+                        freeze_frame = start_frame
+                    else:
+                        freeze_frame = int(freeze_frame)
+                        if freeze_frame < start_frame or freeze_frame > end_frame:
+                            print(
+                                f"Warning: LOWER_BODY_FREEZE_FRAME ({freeze_frame}) is "
+                                f"outside the animation range. "
+                                f"Using start frame {start_frame} instead."
+                            )
+                            freeze_frame = start_frame
+
+                    scene.frame_set(freeze_frame)
+                    bpy.context.view_layer.update()
+
+                    for bone_name in lower_body_bone_names:
+                        pbone = armature_obj.pose.bones.get(bone_name)
+                        if not pbone:
+                            continue
+
+                        lower_body_transforms[bone_name] = extract_pose_transform(pbone)
+                        if with_tips:
+                            lower_body_tip_locations[bone_name] = vector_to_tuple(pbone.tail)
+
+                    if lower_body_transforms:
+                        print(
+                            f"Lower body bones will use a static pose from frame {freeze_frame} "
+                            f"({len(lower_body_transforms)} bones)."
+                        )
+                    else:
+                        print("Warning: No matching lower body bones found; exporting full motion.")
+                        freeze_lower_body = False
+
+                    scene.frame_set(start_frame)
+                    bpy.context.view_layer.update()
+                else:
+                    print("Warning: No lower body bones resolved; exporting full motion.")
+                    freeze_lower_body = False
+
             # --- DATA EXPORT LOOP ---
             # Loop through every frame in the scene's range
             for frame in range(start_frame, end_frame + 1):
@@ -86,16 +221,19 @@ def export_armature_pose_data(with_tips=False):
 
                 # Loop through each pose bone in the armature
                 for pbone in armature_obj.pose.bones:
-                    # Get the final transformation matrix in object space
-                    final_matrix = pbone.matrix
-                    loc, rot, scale = final_matrix.decompose()
+                    use_static_pose = freeze_lower_body and (pbone.name in lower_body_transforms)
+
+                    if use_static_pose:
+                        loc_vals, rot_vals, scale_vals = lower_body_transforms[pbone.name]
+                    else:
+                        loc_vals, rot_vals, scale_vals = extract_pose_transform(pbone)
 
                     # Create a row with the real bone's data
                     row = [
                         frame, pbone.name,
-                        loc.x, loc.y, loc.z,
-                        rot.w, rot.x, rot.y, rot.z,
-                        scale.x, scale.y, scale.z
+                        *loc_vals,
+                        *rot_vals,
+                        *scale_vals
                     ]
                     # Write the real bone's row to the CSV file
                     csv_writer.writerow(row)
@@ -106,12 +244,15 @@ def export_armature_pose_data(with_tips=False):
                         if not pbone.children:
                             # Define the "fake" tip bone's properties
                             tip_name = f"{pbone.name}_tip"
-                            tip_loc = pbone.tail # The location is the tail of the parent bone
+                            tip_loc_vals = lower_body_tip_locations.get(
+                                pbone.name,
+                                vector_to_tuple(pbone.tail)
+                            )
 
                             # Create the row for the fake tip bone
                             tip_row = [
                                 frame, tip_name,
-                                tip_loc.x, tip_loc.y, tip_loc.z,
+                                *tip_loc_vals,
                                 1.0, 0.0, 0.0, 0.0,  # Identity rotation (w, x, y, z)
                                 1.0, 1.0, 1.0         # Identity scale
                             ]
@@ -121,11 +262,14 @@ def export_armature_pose_data(with_tips=False):
                         # Special case: explicitly save センター bone's tail position
                         if pbone.name == "センター":
                             center_tip_name = f"{pbone.name}_tip"
-                            center_tip_loc = pbone.tail
+                            center_tip_loc_vals = lower_body_tip_locations.get(
+                                pbone.name,
+                                vector_to_tuple(pbone.tail)
+                            )
 
                             center_tip_row = [
                                 frame, center_tip_name,
-                                center_tip_loc.x, center_tip_loc.y, center_tip_loc.z,
+                                *center_tip_loc_vals,
                                 1.0, 0.0, 0.0, 0.0,  # Identity rotation
                                 1.0, 1.0, 1.0         # Identity scale
                             ]
@@ -148,4 +292,3 @@ def export_armature_pose_data(with_tips=False):
 # --- SCRIPT EXECUTION ---
 if __name__ == "__main__":
     export_armature_pose_data(with_tips=True)
-
