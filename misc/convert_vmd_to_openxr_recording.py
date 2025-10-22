@@ -313,6 +313,12 @@ def main():
     if args.calculate_subtalar:
         print("Calculating fake subtalar bones from toe IK data")
 
+    if not args.no_coord_conversion:
+        print(
+            "WARNING: If input file was exported using `blender_export_script.py`, the data "
+            "is already in Z-up. Enabling coordinate conversion will create an incorrect file."
+        )
+
     success = convert_vmd_to_openxr_csv(
         input_file=args.input,
         output_file=args.output,
