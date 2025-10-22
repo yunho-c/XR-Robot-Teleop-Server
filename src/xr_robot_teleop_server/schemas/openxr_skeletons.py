@@ -53,11 +53,6 @@ class OVRHandBoneId(enum.IntEnum):
     OVRHand_PinkyTip = 23
     OVRHand_End = 24
 
-    @classmethod
-    def _missing_(cls, value):
-        return "OVRHand_Unknown"
-
-
 class HandBoneId(enum.IntEnum):
     """Specifies the bone IDs for a hand skeleton, following OpenXR standards."""
 
@@ -90,11 +85,6 @@ class HandBoneId(enum.IntEnum):
     Hand_LittleTip = 25
     Hand_Max = 26
     Hand_End = 26
-
-    @classmethod
-    def _missing_(cls, value):
-        return "Hand_Unknown"
-
 
 class BodyBoneId(enum.IntEnum):
     """Specifies the bone IDs for a body skeleton."""
@@ -171,11 +161,6 @@ class BodyBoneId(enum.IntEnum):
     Body_RightHandLittleDistal = 68
     Body_RightHandLittleTip = 69
     Body_End = 70
-
-    @classmethod
-    def _missing_(cls, value):
-        return "Body_Unknown"
-
 
 class FullBodyBoneId(enum.IntEnum):
     """Specifies the bone IDs for a full body skeleton, including legs and feet."""
@@ -267,11 +252,6 @@ class FullBodyBoneId(enum.IntEnum):
     FullBody_RightFootBall = 83
     FullBody_End = 84
 
-    @classmethod
-    def _missing_(cls, value):
-        return "FullBody_Unknown"
-
-
 # A type hint for any of the bone ID enums
 AnyBoneId = OVRHandBoneId | HandBoneId | BodyBoneId | FullBodyBoneId
 
@@ -317,10 +297,13 @@ def get_bone_label(skeleton_type: SkeletonType, bone_id: int) -> str:
     else:
         return "Skeleton_Unknown"
 
-    bone = enum_class(bone_id)
-    # The _missing_ method returns a string for unknown bone IDs.
-    if not isinstance(bone, enum.Enum):
-        return str(bone)
+    try:
+        bone = enum_class(bone_id)
+    except ValueError:
+        prefix = enum_class.__name__
+        if prefix.endswith("BoneId"):
+            prefix = prefix[: -len("BoneId")]
+        return f"{prefix}_Unknown"
     return bone.name
 
 

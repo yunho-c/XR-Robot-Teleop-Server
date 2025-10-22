@@ -66,6 +66,62 @@
 ---
 
 ```
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│  > Enum fallbacks in libraries: Unknown members or helper logic — what’s better?                                           │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+✦ Summary: Keep enums spec‑pure and handle “unknown” via helper functions. Only add `*_Unknown` enum members if you require
+  always‑enum returns and coercion of invalid values.
+
+Why helper logic is better for a library
+- Type integrity: `IntEnum(value)` raising `ValueError` clearly signals invalid input per spec. Callers can choose strict enum
+  casting or tolerant helpers.
+- Iteration safety: Avoids polluting member iteration and “count” logic with sentinel values (in addition to existing `*_End`).
+- Interop/validation: Frameworks (pydantic/marshmallow/JSON Schema) use Enums for validation. Sentinels can blur invalid vs. unknown
+  and mask upstream data issues.
+- Separation of concerns: Enums mirror the spec; helpers define fallback policy. Different consumers can pick strict vs. tolerant behavior.
+
+Robust helper pattern (example)
+
+```python
+def get_bone_label(skeleton_type: SkeletonType, bone_id: int) -> str:
+    enum_class = {
+        SkeletonType.OVRHandLeft: OVRHandBoneId,
+        SkeletonType.OVRHandRight: OVRHandBoneId,
+        SkeletonType.HandLeft: HandBoneId,
+        SkeletonType.HandRight: HandBoneId,
+        SkeletonType.Body: BodyBoneId,
+        SkeletonType.FullBody: FullBodyBoneId,
+    }.get(skeleton_type)
+    if enum_class is None:
+        return "Skeleton_Unknown"
+    try:
+        return enum_class(bone_id).name
+    except ValueError:
+        prefix = enum_class.__name__
+        if prefix.endswith("BoneId"):
+            prefix = prefix[:-len("BoneId")]
+        return f"{prefix}_Unknown"
+```
+
+When to prefer adding `*_Unknown` members
+- Pipelines must never raise on unknowns and must coerce to a canonical enum value.
+- UX/visualization flows where dropping to a sentinel is preferable to exception handling.
+
+If choosing the `*_Unknown` approach
+- Use a negative value to avoid colliding with real IDs (e.g., `FullBody_Unknown = -1`).
+- Implement `_missing_` to return that member; never return a plain string.
+- Document the sentinel and provide helper utilities to filter it out when iterating members.
+- Keep “valid member” queries explicit to exclude `*_Unknown` and `*_End` sentinels.
+
+Note on `_missing_` for IntEnum
+- Python’s `Enum._missing_` must return `None` or a valid member. Returning strings (e.g., `"FullBody_Unknown"`) causes a
+  `TypeError`. That’s why handling unknowns in helpers (or returning a defined sentinel member) is the safe design.
+
+---
+
+```
 ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │  > Is the memory bandwidth of subprocess.PIPE going to be enough if a 4k video is being read at 60fps?  │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────╯
