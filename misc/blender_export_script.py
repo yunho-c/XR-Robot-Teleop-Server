@@ -104,6 +104,28 @@ def gather_lower_body_bone_names(armature_obj):
     return lower_body_names
 
 
+def build_frozen_ancestor_lookup(armature_obj, frozen_names):
+    """
+    Build a mapping from bone name to the nearest ancestor that is frozen.
+    Only bones not in the frozen set will appear in the result.
+    """
+    frozen_set = set(frozen_names)
+    ancestor_lookup = {}
+
+    for pbone in armature_obj.pose.bones:
+        if pbone.name in frozen_set:
+            continue
+
+        current = pbone.parent
+        while current:
+            if current.name in frozen_set:
+                ancestor_lookup[pbone.name] = current.name
+                break
+            current = current.parent
+
+    return ancestor_lookup
+
+
 def export_armature_pose_data(with_tips=False):
     """
     Exports the pose data of a specified armature to a CSV file.
@@ -162,6 +184,7 @@ def export_armature_pose_data(with_tips=False):
             freeze_lower_body = USE_STATIC_LOWER_BODY
             lower_body_transforms = {}
             lower_body_tip_locations = {}
+            frozen_ancestor_lookup = {}
 
             if freeze_lower_body:
                 lower_body_bone_names = gather_lower_body_bone_names(armature_obj)
@@ -200,6 +223,10 @@ def export_armature_pose_data(with_tips=False):
                             f"Lower body bones will use a static pose from frame {freeze_frame} "
                             f"({len(lower_body_transforms)} bones)."
                         )
+                        frozen_ancestor_lookup = build_frozen_ancestor_lookup(
+                            armature_obj,
+                            lower_body_transforms.keys()
+                        )
                     else:
                         print("Warning: No matching lower body bones found; exporting full motion.")
                         freeze_lower_body = False
@@ -219,14 +246,46 @@ def export_armature_pose_data(with_tips=False):
                 # Update the dependency graph for the new frame
                 bpy.context.view_layer.update()
 
+                # Gather the current (possibly unfrozen) transforms for all bones
+                current_transforms = {}
+                current_tip_locations = {}
+                for pbone in armature_obj.pose.bones:
+                    current_transforms[pbone.name] = extract_pose_transform(pbone)
+                    if with_tips:
+                        current_tip_locations[pbone.name] = vector_to_tuple(pbone.tail)
+
+                frame_offsets = {}
+                if freeze_lower_body:
+                    for frozen_name, frozen_transform in lower_body_transforms.items():
+                        current_transform = current_transforms.get(frozen_name)
+                        if not current_transform:
+                            continue
+                        current_loc = current_transform[0]
+                        frozen_loc = frozen_transform[0]
+                        frame_offsets[frozen_name] = tuple(
+                            current_loc[i] - frozen_loc[i] for i in range(3)
+                        )
+
                 # Loop through each pose bone in the armature
                 for pbone in armature_obj.pose.bones:
                     use_static_pose = freeze_lower_body and (pbone.name in lower_body_transforms)
 
+                    current_loc_vals, current_rot_vals, current_scale_vals = current_transforms[pbone.name]
                     if use_static_pose:
                         loc_vals, rot_vals, scale_vals = lower_body_transforms[pbone.name]
                     else:
-                        loc_vals, rot_vals, scale_vals = extract_pose_transform(pbone)
+                        loc_vals, rot_vals, scale_vals = (
+                            current_loc_vals,
+                            current_rot_vals,
+                            current_scale_vals,
+                        )
+                        if freeze_lower_body:
+                            ancestor_name = frozen_ancestor_lookup.get(pbone.name)
+                            ancestor_offset = frame_offsets.get(ancestor_name) if ancestor_name else None
+                            if ancestor_offset:
+                                loc_vals = tuple(
+                                    loc_vals[i] - ancestor_offset[i] for i in range(3)
+                                )
 
                     # Create a row with the real bone's data
                     row = [
@@ -244,10 +303,17 @@ def export_armature_pose_data(with_tips=False):
                         if not pbone.children:
                             # Define the "fake" tip bone's properties
                             tip_name = f"{pbone.name}_tip"
-                            tip_loc_vals = lower_body_tip_locations.get(
-                                pbone.name,
-                                vector_to_tuple(pbone.tail)
-                            )
+                            if use_static_pose and pbone.name in lower_body_tip_locations:
+                                tip_loc_vals = lower_body_tip_locations[pbone.name]
+                            else:
+                                tip_loc_vals = current_tip_locations[pbone.name]
+                                if freeze_lower_body:
+                                    ancestor_name = frozen_ancestor_lookup.get(pbone.name)
+                                    ancestor_offset = frame_offsets.get(ancestor_name) if ancestor_name else None
+                                    if ancestor_offset:
+                                        tip_loc_vals = tuple(
+                                            tip_loc_vals[i] - ancestor_offset[i] for i in range(3)
+                                        )
 
                             # Create the row for the fake tip bone
                             tip_row = [
@@ -262,10 +328,17 @@ def export_armature_pose_data(with_tips=False):
                         # Special case: explicitly save センター bone's tail position
                         if pbone.name == "センター":
                             center_tip_name = f"{pbone.name}_tip"
-                            center_tip_loc_vals = lower_body_tip_locations.get(
-                                pbone.name,
-                                vector_to_tuple(pbone.tail)
-                            )
+                            if use_static_pose and pbone.name in lower_body_tip_locations:
+                                center_tip_loc_vals = lower_body_tip_locations[pbone.name]
+                            else:
+                                center_tip_loc_vals = current_tip_locations[pbone.name]
+                                if freeze_lower_body:
+                                    ancestor_name = frozen_ancestor_lookup.get(pbone.name)
+                                    ancestor_offset = frame_offsets.get(ancestor_name) if ancestor_name else None
+                                    if ancestor_offset:
+                                        center_tip_loc_vals = tuple(
+                                            center_tip_loc_vals[i] - ancestor_offset[i] for i in range(3)
+                                        )
 
                             center_tip_row = [
                                 frame, center_tip_name,
