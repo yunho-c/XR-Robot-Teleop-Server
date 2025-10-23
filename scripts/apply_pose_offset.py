@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Apply global translation and rotation offsets to OpenXR-style pose CSV files.
 
@@ -16,11 +15,10 @@ import argparse
 import csv
 import math
 import sys
-from typing import Iterable, Sequence, Tuple
+from collections.abc import Iterable, Sequence
 
-
-Quaternion = Tuple[float, float, float, float]
-Vector3 = Tuple[float, float, float]
+Quaternion = tuple[float, float, float, float]
+Vector3 = tuple[float, float, float]
 
 
 def parse_args() -> argparse.Namespace:

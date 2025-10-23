@@ -5,6 +5,7 @@ NOTE: This is meant to be invoked from inside of Blender, using its `Scripting` 
 import bpy
 import csv
 import os
+from mathutils import Quaternion
 
 # --- YOU ONLY NEED TO EDIT THESE TWO LINES ---
 
@@ -41,6 +42,13 @@ LOWER_BODY_ROOT_BONES = [
 # Additional bones to freeze even if they are not descendants of the root list.
 LOWER_BODY_ADDITIONAL_BONES = [
     "センター",
+    "上半身",
+    "上半身2",
+    "首",
+    "肩.L",
+    "肩.R",
+    "腕.L",
+    "腕.R",
 ]
 
 # When True, every descendant of each entry in LOWER_BODY_ROOT_BONES is frozen.
@@ -255,6 +263,7 @@ def export_armature_pose_data(with_tips=False):
                         current_tip_locations[pbone.name] = vector_to_tuple(pbone.tail)
 
                 frame_offsets = {}
+                frame_rot_corrections = {}
                 if freeze_lower_body:
                     for frozen_name, frozen_transform in lower_body_transforms.items():
                         current_transform = current_transforms.get(frozen_name)
@@ -265,6 +274,11 @@ def export_armature_pose_data(with_tips=False):
                         frame_offsets[frozen_name] = tuple(
                             current_loc[i] - frozen_loc[i] for i in range(3)
                         )
+                        current_rot = Quaternion(current_transform[1])
+                        frozen_rot = Quaternion(frozen_transform[1])
+                        rot_correction = frozen_rot @ current_rot.conjugated()
+                        rot_correction.normalize()
+                        frame_rot_corrections[frozen_name] = rot_correction
 
                 # Loop through each pose bone in the armature
                 for pbone in armature_obj.pose.bones:
@@ -285,6 +299,17 @@ def export_armature_pose_data(with_tips=False):
                             if ancestor_offset:
                                 loc_vals = tuple(
                                     loc_vals[i] - ancestor_offset[i] for i in range(3)
+                                )
+                            # NOTE: note sure if rotation correction actually works or not
+                            rot_correction = frame_rot_corrections.get(ancestor_name) if ancestor_name else None
+                            if rot_correction:
+                                adjusted_quat = rot_correction @ Quaternion(rot_vals)
+                                adjusted_quat.normalize()
+                                rot_vals = (
+                                    adjusted_quat.w,
+                                    adjusted_quat.x,
+                                    adjusted_quat.y,
+                                    adjusted_quat.z,
                                 )
 
                     # Create a row with the real bone's data

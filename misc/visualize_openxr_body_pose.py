@@ -71,6 +71,48 @@ def parse_openxr_csv(csv_file: str) -> tuple[list[float], dict[int, list[BoneDat
     return times_sorted, frame_map
 
 
+def build_skeleton_tree() -> dict[FullBodyBoneId, list[FullBodyBoneId]]:
+    """Build a child lookup table from the default skeleton connections."""
+    children: dict[FullBodyBoneId, list[FullBodyBoneId]] = {}
+    for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
+        children.setdefault(parent, []).append(child)
+    return children
+
+
+def find_recovered_connections(
+    available_bones: set[FullBodyBoneId],
+) -> list[tuple[FullBodyBoneId, FullBodyBoneId]]:
+    """
+    Find recovered connections that bypass missing intermediate bones.
+
+    Returns a list of (parent, descendant) pairs where descendant is the first available bone
+    reachable from the original missing child.
+    """
+    children_map = build_skeleton_tree()
+    recovered: set[tuple[FullBodyBoneId, FullBodyBoneId]] = set()
+
+    def find_available_descendants(
+        bone_id: FullBodyBoneId,
+    ) -> list[FullBodyBoneId]:
+        """Recursively search for available descendants starting from a missing bone."""
+        descendants: list[FullBodyBoneId] = []
+        for child in children_map.get(bone_id, []):
+            if child in available_bones:
+                descendants.append(child)
+            else:
+                descendants.extend(find_available_descendants(child))
+        return descendants
+
+    for parent, child in FULL_BODY_SKELETON_CONNECTIONS:
+        if parent not in available_bones or child in available_bones:
+            continue
+
+        for descendant in find_available_descendants(child):
+            recovered.add((parent, descendant))
+
+    return list(recovered)
+
+
 def log_annotation_context() -> None:
     """Configure rerun with FullBody skeleton annotations and connections."""
     colormap = cm.get_cmap("jet")
@@ -106,12 +148,21 @@ def visualize_frame(bones: list[BoneData], time_key: float | int, seq_name: str)
     """Visualize a single frame of bone data."""
     if not bones:
         return
-    # rr.set_time_sequence(seq_name, time_key)
-    # rr.set_time(seq_name, duration=time_key)  # not sure
-    # rr.set_time(seq_name, timestamp=time_key)  # not sure
-    rr.set_time(seq_name, sequence=time_key)  # not sure
-    positions = [b.position for b in bones]
-    keypoint_ids = [b.id.value for b in bones]
+
+    rr.set_time(seq_name, sequence=time_key)
+
+    positions = [bone.position for bone in bones]
+    keypoint_ids = [bone.id.value for bone in bones]
+    bone_positions: dict[FullBodyBoneId, tuple[float, float, float]] = {
+        bone.id: bone.position for bone in bones
+    }
+    available_bone_ids = set(bone_positions.keys())
+    original_connections = {
+        (parent, child)
+        for parent, child in FULL_BODY_SKELETON_CONNECTIONS
+        if parent in available_bone_ids and child in available_bone_ids
+    }
+
     rr.log(
         "world/user/bones",
         rr.Points3D(
@@ -121,6 +172,21 @@ def visualize_frame(bones: list[BoneData], time_key: float | int, seq_name: str)
             radii=VIZ_POINT_RADIUS,
         ),
     )
+
+    recovered_lines = [
+        [bone_positions[parent], bone_positions[child]]
+        for parent, child in find_recovered_connections(available_bone_ids)
+        if (parent, child) not in original_connections
+    ]
+    if recovered_lines:
+        rr.log(
+            "world/user/skeleton_recovered",
+            rr.LineStrips3D(
+                strips=recovered_lines,
+                colors=[[135, 206, 250, 255]],
+                radii=[0.002],
+            ),
+        )
 
 
 def main():
