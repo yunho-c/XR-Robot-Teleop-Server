@@ -164,6 +164,43 @@ MIXAMO_TO_FULLBODY_MAPPING = {
 }
 
 
+# The LAFAN-1 dataset ships with a BVH skeleton that follows the classic
+# Autodesk/Mixamo-style human kinematic tree without finger detail.  The
+# mapping below captures the relationship between the BVH joint names and the
+# canonical OpenXR full-body enumeration so that we can reason about coverage
+# alongside the other sources.
+LAFAN_TO_FULLBODY_MAPPING = {
+    # Root and spine chain
+    "Hips": FullBodyBoneId.FullBody_Hips,
+    "Spine": FullBodyBoneId.FullBody_SpineLower,
+    "Spine1": FullBodyBoneId.FullBody_SpineMiddle,
+    # "Spine2": FullBodyBoneId.FullBody_Chest, # ORIG
+    "Spine2": FullBodyBoneId.FullBody_SpineUpper, # TEMP 
+    "Neck": FullBodyBoneId.FullBody_Neck,
+    "Head": FullBodyBoneId.FullBody_Head,
+    # Left arm branch
+    "LeftShoulder": FullBodyBoneId.FullBody_LeftShoulder,
+    "LeftArm": FullBodyBoneId.FullBody_LeftArmUpper,
+    "LeftForeArm": FullBodyBoneId.FullBody_LeftArmLower,
+    "LeftHand": FullBodyBoneId.FullBody_LeftHandWrist,
+    # Right arm branch
+    "RightShoulder": FullBodyBoneId.FullBody_RightShoulder,
+    "RightArm": FullBodyBoneId.FullBody_RightArmUpper,
+    "RightForeArm": FullBodyBoneId.FullBody_RightArmLower,
+    "RightHand": FullBodyBoneId.FullBody_RightHandWrist,
+    # Left leg branch
+    "LeftUpLeg": FullBodyBoneId.FullBody_LeftUpperLeg,
+    "LeftLeg": FullBodyBoneId.FullBody_LeftLowerLeg,
+    "LeftFoot": FullBodyBoneId.FullBody_LeftFootAnkle,
+    "LeftToe": FullBodyBoneId.FullBody_LeftFootBall,
+    # Right leg branch
+    "RightUpLeg": FullBodyBoneId.FullBody_RightUpperLeg,
+    "RightLeg": FullBodyBoneId.FullBody_RightLowerLeg,
+    "RightFoot": FullBodyBoneId.FullBody_RightFootAnkle,
+    "RightToe": FullBodyBoneId.FullBody_RightFootBall,
+}
+
+
 def get_bone_categories() -> Dict[str, List[FullBodyBoneId]]:
     """Categorize bones by body part."""
     categories = {
@@ -448,8 +485,16 @@ def create_comparison_matrix():
     openxr_bones = set(FullBodyBoneId)
     vmd_bones = get_available_bones(VMD_TO_FULLBODY_MAPPING)
     fbx_bones = get_available_bones(MIXAMO_TO_FULLBODY_MAPPING)
+    lafan_bones = get_available_bones(LAFAN_TO_FULLBODY_MAPPING)
 
     categories = get_bone_categories()
+
+    datasets = [
+        ("OpenXR", openxr_bones),
+        ("VMD", vmd_bones),
+        ("FBX", fbx_bones),
+        ("LAFAN-1", lafan_bones),
+    ]
 
     # Create matrix data
     matrix_data = []
@@ -458,15 +503,12 @@ def create_comparison_matrix():
     for category, bone_list in categories.items():
         for bone in bone_list:
             bone_names.append(f"{category}\n{bone.name.replace('FullBody_', '')}")
-            row = [
-                1,  # OpenXR (all bones available)
-                1 if bone in vmd_bones else 0,  # VMD
-                1 if bone in fbx_bones else 0,  # FBX
-            ]
+            row = [1 if bone in bone_set else 0 for _, bone_set in datasets]
             matrix_data.append(row)
 
     # Create visualization
-    fig, ax = plt.subplots(figsize=(8, 20))
+    fig_width = 8 + 1.5 * (len(datasets) - 3)
+    fig, ax = plt.subplots(figsize=(fig_width, 20))
 
     import numpy as np
     matrix = np.array(matrix_data)
@@ -475,14 +517,14 @@ def create_comparison_matrix():
     im = ax.imshow(matrix, cmap='RdYlGn', aspect='auto', vmin=0, vmax=1)
 
     # Set labels
-    ax.set_xticks([0, 1, 2])
-    ax.set_xticklabels(['OpenXR', 'VMD', 'FBX'])
+    ax.set_xticks(range(len(datasets)))
+    ax.set_xticklabels([name for name, _ in datasets])
     ax.set_yticks(range(len(bone_names)))
     ax.set_yticklabels(bone_names, fontsize=8)
 
     # Add text annotations
     for i in range(len(bone_names)):
-        for j in range(3):
+        for j in range(len(datasets)):
             text = '✓' if matrix[i, j] == 1 else '✗'
             color = 'white' if matrix[i, j] == 0 else 'black'
             ax.text(j, i, text, ha='center', va='center', color=color, fontweight='bold')
