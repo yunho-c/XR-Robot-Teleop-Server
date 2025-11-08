@@ -37,6 +37,14 @@ LOWER_BODY_ROOT_BONES = [
     "右足首",
     "左つま先",
     "右つま先",
+    # BVH human pose dataset
+    "Hips",
+    "LeftUpLeg",
+    "RightUpLeg",
+    "LeftLeg",
+    "RightLeg",
+    "LeftFootMod",
+    "RightFootMod",
 ]
 
 # Additional bones to freeze even if they are not descendants of the root list.
@@ -49,6 +57,14 @@ LOWER_BODY_ADDITIONAL_BONES = [
     "肩.R",
     "腕.L",
     "腕.R",
+    # BVH human pose dataset
+    "Spine2",
+    "LeftArm",
+    "RightArm",
+    "LeftForeArm",
+    "RightForeArm",
+    "LeftHand",
+    "RightHand",
 ]
 
 # When True, every descendant of each entry in LOWER_BODY_ROOT_BONES is frozen.
