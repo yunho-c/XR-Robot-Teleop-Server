@@ -112,11 +112,7 @@ async def periodic_ping(server: WebRTCServer, interval: float):
 
 def _find_state_by_peer_id(server: WebRTCServer, peer_id: str) -> Any | None:
     """Helper to look up a state by peer_id (stored on AppState)."""
-    for ctx in server._peer_context.values():  # noqa: SLF001
-        state = ctx.get("state")
-        if getattr(state, "peer_id", None) == peer_id:
-            return state
-    return None
+    return server.find_state(lambda s: getattr(s, "peer_id", None) == peer_id)
 
 
 class ControlRequest(BaseModel):
@@ -208,34 +204,22 @@ if __name__ == "__main__":
         server_data_channels=[CONTROL_CHANNEL_LABEL],
     )
 
-    # FastAPI lifespan is already provided by WebRTCServer, so wrap it to add ping task management.
-    original_lifespan = server.app.router.lifespan_context
-
     @asynccontextmanager
-    async def lifespan(app):
+    async def ping_lifespan(app):
+        """Manage the periodic ping task within the server lifespan."""
         task = None
-        # Use original lifespan if present; otherwise provide a no-op wrapper
-        if original_lifespan:
-            base_ctx = original_lifespan(app)
-        else:
-            @asynccontextmanager
-            async def _noop(_app):
-                yield
+        if args.ping_interval and args.ping_interval > 0:
+            task = asyncio.create_task(periodic_ping(server, args.ping_interval))
+            app.state.ping_task = task
+        try:
+            yield
+        finally:
+            if task:
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
 
-            base_ctx = _noop(app)
-        async with base_ctx:
-            if args.ping_interval and args.ping_interval > 0:
-                task = asyncio.create_task(periodic_ping(server, args.ping_interval))
-                app.state.ping_task = task
-            try:
-                yield
-            finally:
-                if task:
-                    task.cancel()
-                    with suppress(asyncio.CancelledError):
-                        await task
-
-    server.app.router.lifespan_context = lifespan
+    server.add_lifespan_context(ping_lifespan)
 
     @server.app.post("/control/send")
     async def send_control(req: ControlRequest = Body(...)):

@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from functools import wraps
 
 import uvicorn
@@ -52,6 +52,7 @@ class WebRTCServer:
         self.app = FastAPI(lifespan=self.lifespan)
         self.pcs = set()  # global storage for peer connection(s)
         self._peer_context = {}  # pc -> {"state": state, "channels": {label: channel}}
+        self._extra_lifespans = []  # additional async context managers to run around lifespan
         self._server_data_channels = list(server_data_channels or [])
 
         # Wrap factories and handlers to manage state passing and async execution
@@ -117,6 +118,32 @@ class WebRTCServer:
 
         return wrapper
 
+    def add_lifespan_context(self, ctx):
+        """
+        Register an async context manager (or factory) to be composed with the server lifespan.
+
+        Args:
+            ctx: Either an async context manager instance or a callable that accepts
+                 the FastAPI app and returns an async context manager.
+        """
+        self._extra_lifespans.append(ctx)
+
+    def iter_peer_states(self):
+        """Yield the state object for each active peer connection."""
+        for ctx in self._peer_context.values():
+            state = ctx.get("state")
+            if state is not None:
+                yield state
+
+    def find_state(self, predicate):
+        """
+        Return the first peer state for which predicate(state) is True, else None.
+        """
+        for state in self.iter_peer_states():
+            if predicate(state):
+                return state
+        return None
+
     def _attach_channel_handlers(self, pc, channel, state, pc_id):
         """
         Register message/close handlers for a data channel and track it.
@@ -146,16 +173,21 @@ class WebRTCServer:
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI):
-        # Startup
-        yield
+        async with AsyncExitStack() as stack:
+            for ctx in self._extra_lifespans:
+                ctx_obj = ctx(app) if callable(ctx) else ctx
+                await stack.enter_async_context(ctx_obj)
 
-        # Shutdown
-        logger.info("Server shutting down, closing all peer connections.")
-        # Make a copy of the set to iterate over, as closing pcs modifies the set
-        coros = [pc.close() for pc in list(self.pcs)]
-        await asyncio.gather(*coros)
-        self.pcs.clear()
-        self._peer_context.clear()
+            # Startup
+            yield
+
+            # Shutdown
+            logger.info("Server shutting down, closing all peer connections.")
+            # Make a copy of the set to iterate over, as closing pcs modifies the set
+            coros = [pc.close() for pc in list(self.pcs)]
+            await asyncio.gather(*coros)
+            self.pcs.clear()
+            self._peer_context.clear()
 
     async def _create_offer_handler(self, request: Request):
         """
