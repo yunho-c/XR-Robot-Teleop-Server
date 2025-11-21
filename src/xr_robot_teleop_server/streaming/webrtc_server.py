@@ -27,6 +27,7 @@ class WebRTCServer:
         video_track_factory=None,
         datachannel_handlers=None,
         state_factory=None,
+        server_data_channels=None,
     ):
         """
         Initializes the WebRTC Server.
@@ -42,12 +43,16 @@ class WebRTCServer:
                 keyword argument if their signature includes `state` or `**kwargs`.
             state_factory (callable, optional): A function or class that, when called, returns
                 a new state object for the peer connection.
+            server_data_channels (iterable[str], optional): Data channel labels to be created
+                by the server proactively (e.g., control channels).
         """
         self.host = host
         self.port = port
         self.state_factory = state_factory
         self.app = FastAPI(lifespan=self.lifespan)
         self.pcs = set()  # global storage for peer connection(s)
+        self._peer_context = {}  # pc -> {"state": state, "channels": {label: channel}}
+        self._server_data_channels = list(server_data_channels or [])
 
         # Wrap factories and handlers to manage state passing and async execution
         self._video_track_factory = self._wrap_callable(video_track_factory)
@@ -84,18 +89,26 @@ class WebRTCServer:
             return None
 
         sig = inspect.signature(func)
-        has_state = "state" in sig.parameters or any(
-            p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
-        )
+        params = sig.parameters
+        accepts_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+        has_state = "state" in params or accepts_kwargs
+        has_channel = "channel" in params or accepts_kwargs
+        accepted_names = set(params.keys())
         is_async = asyncio.iscoroutinefunction(func)
 
         @wraps(func)
         async def wrapper(*args, **kwargs):
             state = kwargs.pop("state", None)
-            call_args = kwargs
+            channel = kwargs.pop("channel", None)
+            # Trim kwargs that aren't accepted unless the callable has **kwargs
+            call_args = kwargs if accepts_kwargs else {
+                k: v for k, v in kwargs.items() if k in accepted_names
+            }
 
             if has_state:
                 call_args["state"] = state
+            if has_channel:
+                call_args["channel"] = channel
 
             if is_async:
                 return await func(*args, **call_args)
@@ -103,6 +116,33 @@ class WebRTCServer:
                 return func(*args, **call_args)
 
         return wrapper
+
+    def _attach_channel_handlers(self, pc, channel, state, pc_id):
+        """
+        Register message/close handlers for a data channel and track it.
+        """
+        label = channel.label
+        logger.info(f"{pc_id}: Data channel '{label}' created.")
+        peer_ctx = self._peer_context.get(pc)
+        if peer_ctx is not None:
+            peer_ctx["channels"][label] = channel
+
+        if label in self._datachannel_handlers:
+            handler = self._datachannel_handlers[label]
+
+            @channel.on("message")
+            async def on_message(message):
+                logger.debug(f"{pc_id}: Message on '{label}': {message}")
+                await handler(message=message, state=state, channel=channel)
+        else:
+            logger.warning(f"{pc_id}: No handler registered for data channel '{label}'.")
+
+        @channel.on("close")
+        def on_close():
+            peer_ctx = self._peer_context.get(pc)
+            if peer_ctx:
+                peer_ctx["channels"].pop(label, None)
+                logger.info(f"{pc_id}: Data channel '{label}' closed and removed.")
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI):
@@ -115,6 +155,7 @@ class WebRTCServer:
         coros = [pc.close() for pc in list(self.pcs)]
         await asyncio.gather(*coros)
         self.pcs.clear()
+        self._peer_context.clear()
 
     async def _create_offer_handler(self, request: Request):
         """
@@ -150,21 +191,21 @@ class WebRTCServer:
         else:
             logger.warning(f"{pc_id}: No video_track_factory provided.")
 
+        # Track state and channels for this peer
+        self._peer_context[pc] = {"state": state, "channels": {}, "id": pc_id}
+
+        # Create server-initiated data channels (e.g., control channels)
+        for label in self._server_data_channels:
+            try:
+                channel = pc.createDataChannel(label)
+                self._attach_channel_handlers(pc, channel, state, pc_id)
+            except Exception as e:
+                logger.error(f"{pc_id}: Failed to create server data channel '{label}': {e}")
+
         # Create a data channel handler
         @pc.on("datachannel")
         def on_datachannel(channel):
-            label = channel.label
-            logger.info(f"{pc_id}: Data channel '{label}' created.")
-
-            if label in self._datachannel_handlers:
-                handler = self._datachannel_handlers[label]
-
-                @channel.on("message")
-                async def on_message(message):
-                    logger.debug(f"{pc_id}: Message on '{label}': {message}")
-                    await handler(message=message, state=state)
-            else:
-                logger.warning(f"{pc_id}: No handler registered for data channel '{label}'.")
+            self._attach_channel_handlers(pc, channel, state, pc_id)
 
         @pc.on("connectionstatechange")
         async def on_connectionstatechange():
@@ -172,6 +213,7 @@ class WebRTCServer:
             if pc.connectionState in ("failed", "closed", "disconnected"):
                 await pc.close()
                 self.pcs.discard(pc)
+                self._peer_context.pop(pc, None)
                 logger.info(f"{pc_id}: Cleaned up.")
 
         try:
@@ -187,12 +229,46 @@ class WebRTCServer:
             logger.error(f"{pc_id}: Error during offer/answer exchange: {e}")
             await pc.close()
             self.pcs.discard(pc)
+            self._peer_context.pop(pc, None)
             return JSONResponse(status_code=500, content={"error": str(e)})
 
         # Return the answer to the client
         return JSONResponse(
             content={"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
         )
+
+    def send_to_datachannel(self, label, message, state=None):
+        """
+        Send a message to any open data channel with the given label.
+
+        If `state` is provided, the send targets only the peer associated with
+        that state; otherwise it broadcasts to all peers with the label.
+
+        Returns:
+            int: The number of channels the message was sent to.
+        """
+        deliveries = 0
+        for pc in list(self.pcs):
+            ctx = self._peer_context.get(pc)
+            if ctx is None:
+                continue
+            if state is not None and ctx["state"] is not state:
+                continue
+
+            channel = ctx["channels"].get(label)
+            if channel is None:
+                continue
+
+            if getattr(channel, "readyState", None) != "open":
+                logger.debug(f"{ctx.get('id')}: Data channel '{label}' not open; skipping send.")
+                continue
+
+            try:
+                channel.send(message)
+                deliveries += 1
+            except Exception as e:
+                logger.error(f"{ctx.get('id')}: Failed to send on '{label}': {e}")
+        return deliveries
 
     def run(self):
         """Starts the web server."""
