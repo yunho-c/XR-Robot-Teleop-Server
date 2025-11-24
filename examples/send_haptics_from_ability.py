@@ -4,7 +4,7 @@ server-initiated WebRTC data channel.
 
 This example mirrors `send_haptics.py` but samples the 30 touch sensors
 published by the Ability Hand API and condenses them into per-finger intensity
-values for the haptics data channel.
+values for the haptics data channel, mirroring to both left and right hands.
 """
 
 import argparse  # noqa: I001
@@ -130,7 +130,10 @@ async def periodic_haptics(
         payload = {
             "type": "haptics",
             "timestamp": time.time(),
-            "intensity": fsr_tip_to_haptic_intensities(fsr_values, fsr_scale),
+            # Mirror the single-hand readings to both sides to align with Unity's
+            # left/right expectations; swap or override as needed upstream.
+            "left": fsr_tip_to_haptic_intensities(fsr_values, fsr_scale),
+            "right": fsr_tip_to_haptic_intensities(fsr_values, fsr_scale),
         }
         if include_raw_fsr:
             payload["raw_fsr"] = fsr_values
