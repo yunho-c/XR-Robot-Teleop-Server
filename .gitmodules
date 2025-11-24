@@ -1,3 +1,6 @@
 [submodule "References/dex-retargeting"]
 	path = References/dex-retargeting
 	url = https://github.com/yunho-c/dex-retargeting
+[submodule "References/ability-hand-api"]
+	path = References/ability-hand-api
+	url = https://github.com/yunho-c/ability-hand-api
