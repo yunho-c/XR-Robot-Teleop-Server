@@ -50,8 +50,9 @@ serve = "xr_robot_teleop_server.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov", "mypy>=1.0", "ruff", "pre-commit", "hatch"]
+psyonic = ["ability-hand"]
 viz = ["rerun-sdk", "matplotlib"]
-# To install: pip install -e .[dev,viz]
+# To install: pip install -e .[dev,viz,psyonic]
 
 # ------------------------------------------------------------------- #
 #                           Tool Configuration                        #
