@@ -2,7 +2,7 @@
 Send fake haptic feedback data over a server-initiated WebRTC data channel.
 
 Based on `examples/send_data.py`, but simplified to emit periodic haptic
-intensities for each finger and the palm.
+intensities for each finger and the palm for both left and right hands.
 """
 
 import argparse  # noqa: I001
@@ -21,8 +21,11 @@ from xr_robot_teleop_server.streaming import WebRTCServer
 HAPTIC_CHANNEL_LABEL = "haptics"
 DEFAULT_INTERVAL = 1.0
 HAPTIC_KEYS = ["thumb", "index", "middle", "ring", "little", "palm"]
+STEP_SIZE = 0.2
+RAMP_CYCLE_SECONDS = 11.0  # 0->1 (6 steps) then 1->0 (5 steps) = 11 steps total
 
 logger = logging.getLogger(__name__)
+_start_time = None
 
 
 class AppState:
@@ -40,11 +43,38 @@ def on_haptics_message(message: bytes | str, state: AppState, channel=None):
 
 
 def make_fake_haptics():
-    """Return a dict of fake haptic intensities between 0 and 1."""
+    """Return a dict of fake haptic intensities ramping up and down from 0 to 1 in steps of 0.2."""
+    global _start_time
     now = time.time()
-    base = (now % 1.0)  # simple changing value
-    intensities = {key: round((base + idx * 0.1) % 1.0, 2) for idx, key in enumerate(HAPTIC_KEYS)}
-    return {"type": "haptics", "timestamp": now, "intensity": intensities}
+    
+    # Initialize start time on first call
+    if _start_time is None:
+        _start_time = now
+    
+    # Calculate which step we're on (0-10 for full cycle: 0->1->0)
+    elapsed = now - _start_time
+    step = int(elapsed) % int(RAMP_CYCLE_SECONDS)
+    
+    # Ramp up: steps 0-5 (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
+    # Ramp down: steps 6-10 (0.8, 0.6, 0.4, 0.2, 0.0)
+    if step <= 5:
+        intensity = step * STEP_SIZE
+    else:
+        # Ramp down: step 6->0.8, 7->0.6, 8->0.4, 9->0.2, 10->0.0
+        intensity = (10 - step) * STEP_SIZE
+    
+    intensity = round(intensity, 2)
+    
+    # Apply same intensity to all fingers for both hands
+    left_intensities = {key: intensity for key in HAPTIC_KEYS}
+    right_intensities = {key: intensity for key in HAPTIC_KEYS}
+    
+    return {
+        "type": "haptics",
+        "timestamp": now,
+        "left": left_intensities,
+        "right": right_intensities
+    }
 
 
 async def periodic_haptics(server: WebRTCServer, interval: float):
