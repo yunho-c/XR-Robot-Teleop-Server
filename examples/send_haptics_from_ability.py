@@ -24,6 +24,40 @@ HAPTIC_CHANNEL_LABEL = "haptics"
 DEFAULT_INTERVAL = 0.05  # seconds between haptic payloads
 DEFAULT_FSR_SCALE = 8.0  # value mapped to intensity 1.0 (touch plots cap around 8)
 
+FINGER_NAMES = ["index", "middle", "ring", "little", "thumb"]
+FINGER_TIP_INDICES = [1 + 6 * i for i in range(len(FINGER_NAMES))]
+
+# Ranges (min, max) are in raw FSR values with the upper bound exclusive unless
+# None, in which case the range is open-ended. Values below the first minimum
+# are treated as "none" so noise in the readings does not trigger feedback.
+FINGER_FORCE_THRESHOLDS: dict[str, list[tuple[float, float | None, str]]] = {
+    "index": [
+        (0.02, 0.15, "low"),
+        (0.15, 0.25, "medium"),
+        (0.25, None, "high"),
+    ],
+    "middle": [
+        (0.02, 0.15, "low"),
+        (0.15, 0.25, "medium"),
+        (0.25, None, "high"),
+    ],
+    "ring": [
+        (0.02, 0.10, "low"),
+        (0.10, 0.20, "medium"),
+        (0.20, None, "high"),
+    ],
+    "little": [
+        (0.02, 0.15, "low"),
+        (0.15, 0.30, "medium"),
+        (0.30, None, "high"),
+    ],
+    "thumb": [
+        (0.02, 0.09, "low"),
+        (0.09, 0.125, "medium"),
+        (0.125, None, "high"),
+    ],
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -91,18 +125,23 @@ def on_haptics_message(message: bytes | str, state: AppState, channel=None):
     logger.info("Received message on haptics channel from %s: %s", state.peer_id, message)
 
 
-def fsr_tip_to_haptic_intensities(fsr_values: list[float], scale: float) -> dict[str, float]:
-    """Convert tip FSR readings (sensor indices 1, 7, 13, 19, 25) to per-finger intensities."""
+def _categorize_force(value: float, thresholds: list[tuple[float, float | None, str]]) -> str:
+    for minimum, maximum, label in thresholds:
+        if value < minimum:
+            continue
+        if maximum is None or value < maximum:
+            return label
+    return "none"
 
-    finger_names = ["index", "middle", "ring", "little", "thumb"]
-    tip_indices = [1 + 6 * i for i in range(len(finger_names))]
 
-    intensities = {}
-    for name, idx in zip(finger_names, tip_indices):
+def fsr_tip_to_haptic_intensities(fsr_values: list[float], scale: float | None = None) -> dict[str, str]:
+    """Convert tip FSR readings to discrete low/medium/high per-finger feedback labels."""
+
+    intensities: dict[str, str] = {}
+    for name, idx in zip(FINGER_NAMES, FINGER_TIP_INDICES):
         value = fsr_values[idx] if idx < len(fsr_values) else 0.0
-        if scale and scale > 0:
-            value = min(max(value / scale, 0.0), 1.0)
-        intensities[name] = round(value, 3)
+        thresholds = FINGER_FORCE_THRESHOLDS.get(name, [])
+        intensities[name] = _categorize_force(value, thresholds)
 
     return intensities
 
