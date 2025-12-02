@@ -27,6 +27,73 @@ DEFAULT_FSR_SCALE = 8.0  # value mapped to intensity 1.0 (touch plots cap around
 FINGER_NAMES = ["index", "middle", "ring", "little", "thumb"]
 FINGER_TIP_INDICES = [1 + 6 * i for i in range(len(FINGER_NAMES))]
 
+logger = logging.getLogger(__name__)
+
+
+class AppState:
+    """Minimal per-peer state with a peer identifier."""
+
+    def __init__(self):
+        self.peer_id = str(uuid.uuid4())
+
+    def __repr__(self):
+        return f"<AppState peer_id={self.peer_id}>"
+
+
+class AbilityHandReader:
+    """Owns the Ability Hand serial client and exposes latest FSR readings."""
+
+    def __init__(
+        self,
+        port: str | None,
+        baud_rate: int | None,
+        reply_mode: int,
+        rate_hz: int,
+        simulated: bool,
+    ):
+        self.port = port
+        self.baud_rate = baud_rate
+        self.reply_mode = reply_mode
+        self.rate_hz = rate_hz
+        self.simulated = simulated
+        self.client: AHSerialClient | None = None
+
+    def start(self):
+        logger.info(
+            "Connecting to Ability Hand (port=%s, baud=%s, reply_mode=%s, rate_hz=%s, simulated=%s)",
+            self.port,
+            self.baud_rate,
+            self.reply_mode,
+            self.rate_hz,
+            self.simulated,
+        )
+        self.client = AHSerialClient(
+            port=self.port,
+            baud_rate=self.baud_rate,
+            reply_mode=self.reply_mode,
+            rate_hz=self.rate_hz,
+            simulated=self.simulated,
+        )
+
+    def close(self):
+        if self.client:
+            logger.info("Closing Ability Hand connection")
+            self.client.close()
+            self.client = None
+
+    def latest_fsr(self) -> list[float] | None:
+        if not self.client:
+            return None
+        fsr_values = self.client.hand.get_fsr()
+        if fsr_values is None:
+            return None
+        return list(fsr_values)
+
+
+def on_haptics_message(message: bytes | str, state: AppState, channel=None):
+    logger.info("Received message on haptics channel from %s: %s", state.peer_id, message)
+
+
 def fsr_tip_to_haptic_intensities(fsr_values: list[float], scale: float | None = None) -> dict[str, float]:
     """Convert tip FSR readings to normalized float intensities (0.0-1.0)."""
     if scale is None:
