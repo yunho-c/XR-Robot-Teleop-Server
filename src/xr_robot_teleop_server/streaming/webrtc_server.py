@@ -102,9 +102,11 @@ class WebRTCServer:
             state = kwargs.pop("state", None)
             channel = kwargs.pop("channel", None)
             # Trim kwargs that aren't accepted unless the callable has **kwargs
-            call_args = kwargs if accepts_kwargs else {
-                k: v for k, v in kwargs.items() if k in accepted_names
-            }
+            call_args = (
+                kwargs
+                if accepts_kwargs
+                else {k: v for k, v in kwargs.items() if k in accepted_names}
+            )
 
             if has_state:
                 call_args["state"] = state
