@@ -7,16 +7,12 @@ the active action before editing so that the original animation stays intact.
 
 import bpy
 
-# --- YOU ONLY NEED TO EDIT THESE TWO LINES ---
-
-# 1. The exact name of your armature object in Blender
+# The name of armature object in Blender
 ARMATURE_NAME = "CHANGE THIS"
 
-# 2. When True, the script copies the current action before modifying it.
-#    Disable if you intentionally want to override keyframes on the existing action.
+# When True, the script copies the current action before modifying it.
+# Disable if you intentionally want to override keyframes on the existing action.
 DUPLICATE_ACTION = True
-
-# --- OPTIONAL SETTINGS ---
 
 # Set USE_STATIC_LOWER_BODY to True to freeze the lower body at a single frame
 # (default scene.frame_start), allowing only the upper body to animate.
@@ -164,23 +160,29 @@ def capture_pose_transforms(armature_obj, bone_names):
     return transforms
 
 
-def freeze_lower_body_in_place():
+def freeze_lower_body_in_place(
+    armature_name=ARMATURE_NAME,
+    duplicate_action=DUPLICATE_ACTION,
+    use_static_lower_body=USE_STATIC_LOWER_BODY,
+    lower_body_freeze_frame=LOWER_BODY_FREEZE_FRAME,
+    clear_existing_keyframes=CLEAR_EXISTING_KEYFRAMES,
+):
     """Freeze configured lower-body bones across the animation."""
-    if not USE_STATIC_LOWER_BODY:
+    if not use_static_lower_body:
         print("USE_STATIC_LOWER_BODY is False; nothing to do.")
         return
 
-    armature_obj = bpy.data.objects.get(ARMATURE_NAME)
+    armature_obj = bpy.data.objects.get(armature_name)
     if not armature_obj or armature_obj.type != "ARMATURE":
-        print(f"Error: Armature object '{ARMATURE_NAME}' not found.")
+        print(f"Error: Armature object '{armature_name}' not found.")
         return
 
     if not armature_obj.animation_data or not armature_obj.animation_data.action:
-        print(f"Error: Armature '{ARMATURE_NAME}' has no animation data.")
+        print(f"Error: Armature '{armature_name}' has no animation data.")
         return
 
     action = armature_obj.animation_data.action
-    if DUPLICATE_ACTION:
+    if duplicate_action:
         action = action.copy()
         action.name = f"{action.name}_static_lower_body"
         armature_obj.animation_data.action = action
@@ -198,7 +200,7 @@ def freeze_lower_body_in_place():
         print("Warning: No lower body bones resolved; aborting.")
         return
 
-    freeze_frame = LOWER_BODY_FREEZE_FRAME
+    freeze_frame = lower_body_freeze_frame
     if freeze_frame is None:
         freeze_frame = start_frame
     else:
@@ -219,7 +221,7 @@ def freeze_lower_body_in_place():
         bpy.context.view_layer.update()
         return
 
-    if CLEAR_EXISTING_KEYFRAMES:
+    if clear_existing_keyframes:
         remove_keyframes_for_bones(action, lower_body_transforms)
 
     for frame in range(start_frame, end_frame + 1):
