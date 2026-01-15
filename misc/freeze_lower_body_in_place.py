@@ -51,7 +51,11 @@ LOWER_BODY_ADDITIONAL_BONES = [
     "腕.R",
     # BVH human pose dataset
     "Hips",
+    "Spine",
+    "Spine1",
     "Spine2",
+    "LeftShoulder",
+    "RightShoulder",
     # "LeftArm",
     # "RightArm",
     # "LeftForeArm",
