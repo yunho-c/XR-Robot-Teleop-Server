@@ -6,6 +6,7 @@ the active action before editing so that the original animation stays intact.
 """
 
 import bpy
+from bpy_extras import anim_utils
 
 # The name of armature object in Blender
 ARMATURE_NAME = "CHANGE THIS"
@@ -114,7 +115,28 @@ def gather_lower_body_bone_names(armature_obj):
     return lower_body_names
 
 
-def remove_keyframes_for_bones(action, bone_transforms):
+def iter_action_fcurves(action, anim_data):
+    """Return an iterable of fcurves across Blender 4.x and 5.0+ APIs."""
+    if hasattr(action, "fcurves"):
+        return action.fcurves
+    if not anim_data or not anim_data.action_slot:
+        return []
+    channelbag = anim_utils.action_ensure_channelbag_for_slot(action, anim_data.action_slot)
+    return channelbag.fcurves or []
+
+
+def remove_action_fcurve(action, anim_data, fcurve):
+    """Remove an fcurve across Blender 4.x and 5.0+ APIs."""
+    if hasattr(action, "fcurves"):
+        action.fcurves.remove(fcurve)
+        return
+    if not anim_data or not anim_data.action_slot:
+        return
+    channelbag = anim_utils.action_ensure_channelbag_for_slot(action, anim_data.action_slot)
+    channelbag.fcurves.remove(fcurve)
+
+
+def remove_keyframes_for_bones(action, anim_data, bone_transforms):
     """Remove fcurves for the specified bones based on captured data."""
     if not action:
         return
@@ -126,12 +148,12 @@ def remove_keyframes_for_bones(action, bone_transforms):
         data_path_prefixes.append(f"{bone_prefix}scale")
     fcurves_to_remove = [
         fcurve
-        for fcurve in list(action.fcurves)
+        for fcurve in list(iter_action_fcurves(action, anim_data))
         for prefix in data_path_prefixes
         if fcurve.data_path == prefix
     ]
     for fcurve in fcurves_to_remove:
-        action.fcurves.remove(fcurve)
+        remove_action_fcurve(action, anim_data, fcurve)
 
 
 def capture_pose_transforms(armature_obj, bone_names):
@@ -226,7 +248,11 @@ def freeze_lower_body_in_place(
         return
 
     if clear_existing_keyframes:
-        remove_keyframes_for_bones(action, lower_body_transforms)
+        remove_keyframes_for_bones(
+            action,
+            armature_obj.animation_data,
+            lower_body_transforms,
+        )
 
     for frame in range(start_frame, end_frame + 1):
         scene.frame_set(frame)
